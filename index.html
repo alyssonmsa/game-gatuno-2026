@@ -351,7 +351,7 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5v
     <div class="intro-burst" id="introBurst" aria-hidden="true"><span>GOAT!</span></div>
     <img class="intro-sandro" id="introSandro" src="sprites/sandro.png" alt="Sandro, o GOAT">
     <div class="intro-cta" id="introCta" hidden>
-      <button class="btn big" id="introGo" type="button">Escolher meu gatuno</button>
+      <button class="btn big" id="introGo" type="button">Bora jogar!</button>
     </div>
     <p class="intro-tap" id="introTap">Toque para continuar</p>
   </section>
@@ -1536,7 +1536,7 @@ function introOpen(){
 }
 $('#intro').addEventListener('click', () => { ac(); introAdvance(); });
 $('#introSkip').addEventListener('click', e => { e.stopPropagation(); introClose('title'); });
-$('#introGo').addEventListener('click', e => { e.stopPropagation(); ac(); introClose('select'); });
+$('#introGo').addEventListener('click', e => { e.stopPropagation(); ac(); introClose('title'); });
 $('#btnIntro').addEventListener('click', introOpen);
 window.addEventListener('keydown', e => { if (!$('#intro').hidden && (e.key === ' ' || e.key === 'Enter')){ e.preventDefault(); introAdvance(); } });
 
