@@ -400,7 +400,7 @@ const FICHAS = {
   ricardo:   { gatunagem:100, pompex:25,  facao:92,  footfault:80,  balao:21 },
   sandro:    { gatunagem:100, pompex:100, facao:0,   footfault:100, balao:100 },
 };
-const GAMES_TO_WIN = 3;
+const GAMES_TO_WIN = 1;   // o jogo acaba quando o gatuno fecha o primeiro game (1x0)
 
 // patrocinadores: logo em sprites/patrocinadores/ e a cor de fundo da placa
 const PATROCINADORES = [
@@ -1316,7 +1316,7 @@ function showEnd(){
   S.mode = 'end'; $('#hud').hidden = true; $('#hint').hidden = true;
   const g = S.char, st = S.stats;
   $('#endAvatar').src = g.avatarURL; $('#endAvatar').dataset.av = g.id;
-  $('#endTitle').textContent = `${g.nome} venceu por ${GAMES_TO_WIN} games a 0`;
+  $('#endTitle').textContent = `${g.nome} venceu por ${GAMES_TO_WIN} a 0`;
   $('#stTrue').textContent = st.trueWins; $('#stProt').textContent = st.protests;
   const fav = Object.entries(st.used).sort((a,b) => b[1]-a[1])[0];
   $('#stFav').textContent = fav ? ROUBOS[fav[0]].nome : 'Nenhum, só talento';
