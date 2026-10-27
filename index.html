@@ -78,6 +78,15 @@ body{background:var(--night);color:var(--chalk);font-family:var(--body);font-siz
 h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(46px,15vw,84px);line-height:.92;text-wrap:balance;color:var(--chalk);text-shadow:4px 4px 0 var(--clay),8px 8px 0 rgba(0,0,0,.35)}
 h1 em{font-style:normal;color:var(--ball)}
 h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5vw,38px);line-height:1.05;text-wrap:balance}
+.sponsors{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sponsors-label{margin:0;font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.sponsors-track{overflow:hidden;-webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)}
+.sponsors-run{display:flex;gap:10px;width:max-content;animation:marquee 32s linear infinite}
+.sponsors-track:hover .sponsors-run{animation-play-state:paused}
+@keyframes marquee{to{transform:translateX(calc(-50% - 5px))}}
+.sponsor{flex:none;height:52px;width:112px;display:grid;place-items:center;border-radius:6px;padding:6px 8px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.sponsor img{max-height:100%;max-width:100%;object-fit:contain}
+@media (prefers-reduced-motion: reduce){.sponsors-run{flex-wrap:wrap;width:auto;justify-content:center}.sponsors-run [aria-hidden]{display:none}}
 .logo{width:clamp(130px,40vw,180px);height:auto;aspect-ratio:1;border-radius:50%;border:4px solid var(--ball);box-shadow:0 6px 0 rgba(0,0,0,.35);animation:badge .7s cubic-bezier(.2,1.4,.4,1)}
 @keyframes badge{from{transform:rotate(-25deg) scale(.6);opacity:0}}
 .lede{margin:0;font-size:22px;font-weight:600;line-height:1.25;max-width:32ch}
@@ -244,6 +253,10 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5v
       <h1>GATUNO<br>DE <em>TÊNIS</em></h1>
       <p class="lede">Escolha um colega e tente ganhar um ponto. Só um.</p>
       <div class="actions"><button class="btn big" id="btnPlay">Escolher adversário</button><button class="btn ghost" id="btnIntro">Ver abertura</button></div>
+      <div class="sponsors" aria-label="Patrocinadores">
+        <p class="sponsors-label">Patrocínio</p>
+        <div class="sponsors-track"><div class="sponsors-run" id="sponsorsRun"></div></div>
+      </div>
       <p class="howto">Deslize o dedo pra cima quando a bola chegar perto de você. Pra onde o dedo vai, a bola vai. Dedo mais longo, bola mais funda. O seu jogador corre sozinho.</p>
     </div>
   </section>
@@ -388,6 +401,19 @@ const FICHAS = {
   sandro:    { gatunagem:100, pompex:100, facao:0,   footfault:100, balao:100 },
 };
 const GAMES_TO_WIN = 3;
+
+// patrocinadores: logo em sprites/patrocinadores/ e a cor de fundo da placa
+const PATROCINADORES = [
+  { nome:'Arena Fitness',   logo:'arena-fitness', fundo:'#000000' },
+  { nome:'Bem Família',     logo:'bem-familia',   fundo:'#ffffff' },
+  { nome:"Bob's",           logo:'bobs',          fundo:'#ffffff' },
+  { nome:'Edeconsil',       logo:'edeconsil',     fundo:'#ffffff' },
+  { nome:'Emive',           logo:'emive',         fundo:'#f8f8f8' },
+  { nome:'Hortix',          logo:'hortix',        fundo:'#ffffff' },
+  { nome:'Med Surgery',     logo:'med-su',        fundo:'#ffffff' },
+  { nome:'Oftalmo Centro',  logo:'oftalmo',       fundo:'#ffffff' },
+  { nome:'Silveira Inc.',   logo:'silveira',      fundo:'#f7f7f7' },
+];
 
 const ROUBOS = {
   fora:        { nome:'Grito de FORA',     falas:['FORA! Vi daqui, claríssimo.','FORA! Fora fora fora.','Saiu. Uns dois dedos. Fora.'], nota:m=>`a bola quicou ${m} cm dentro da quadra.` },
@@ -710,6 +736,7 @@ function startMatch(g){
   nextPoint();
 }
 function nextPoint(){
+  ADS.target += 2;
   S.serveSide *= -1;
   S.opp.x = S.opp.tx = 1.3*S.serveSide; S.opp.pose = 'idle'; S.opp.swing = 0;
   S.me.tx = S.me.x;
@@ -955,6 +982,7 @@ function drawScene(){
   const step = 7; for (let x = -(fb.y-ft.y); x < W; x += step){ ctx.moveTo(x, fb.y); ctx.lineTo(x + (fb.y-ft.y), ft.y); ctx.moveTo(x + (fb.y-ft.y), fb.y); ctx.lineTo(x, ft.y); }
   ctx.stroke();
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(0, fb.y, W, 3);
+  drawAds(fb, ft);
   // piso interno (quadra dura): pintado até as linhas de duplas
   if (QUADRA.interna){
     const a = proj(-C.dhw,0,0), b = proj(C.dhw,0,0), c = proj(C.dhw,0,C.len), d = proj(-C.dhw,0,C.len);
@@ -980,6 +1008,39 @@ function drawScene(){
     ctx.fillStyle = QUADRA.poeira ? 'rgba(90,30,10,.55)' : 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.35, 0, 0, 7); ctx.fill();
   }
 }
+/* ---------- placas de publicidade no alambrado ---------- */
+const ADS = { imgs:[], offset:0, target:0 };
+function loadSponsors(){
+  const run = $('#sponsorsRun'); run.innerHTML = '';
+  // duas cópias seguidas pra faixa girar sem emenda
+  for (let copy = 0; copy < 2; copy++) for (const p of PATROCINADORES){
+    const d = document.createElement('div'); d.className = 'sponsor'; d.style.background = p.fundo;
+    if (copy) d.setAttribute('aria-hidden', 'true');
+    const im = document.createElement('img'); im.src = `sprites/patrocinadores/${p.logo}.png`; im.alt = copy ? '' : p.nome; im.loading = 'lazy';
+    d.appendChild(im); run.appendChild(d);
+  }
+  ADS.imgs = PATROCINADORES.map(p => { const im = new Image(); im.src = `sprites/patrocinadores/${p.logo}.png`; return { p, im }; });
+}
+function drawAds(fb, ft){
+  if (!ADS.imgs.length) return;
+  ADS.offset += (ADS.target - ADS.offset)*.08;                       // desliza pro próximo patrocinador
+  const bh = Math.max(24, Math.min(54, H*.045)), bw = bh*2.6, gap = 3, n = ADS.imgs.length;
+  const y = fb.y - bh, par = camX*F/37;                               // acompanha a câmera, como o alambrado
+  const step = bw + gap, first = Math.floor((-W/2 + par)/step + ADS.offset) - 1;
+  ctx.fillStyle = '#0d1a13'; ctx.fillRect(0, y - 3, W, bh + 3);
+  for (let k = first; k * step - ADS.offset*step - par < W/2 + step; k++){
+    const x = W/2 + k*step - ADS.offset*step - par;
+    const a = ADS.imgs[((k % n) + n) % n];
+    ctx.fillStyle = a.p.fundo; ctx.fillRect(x, y, bw, bh);
+    if (a.im.complete && a.im.naturalWidth){
+      const pad = bh*.12, sc = Math.min((bw - pad*2)/a.im.naturalWidth, (bh - pad*2)/a.im.naturalHeight);
+      const w = a.im.naturalWidth*sc, h = a.im.naturalHeight*sc;
+      ctx.drawImage(a.im, x + (bw - w)/2, y + (bh - h)/2, w, h);
+    }
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, fb.y - 2, W, 2);
+}
+
 /* ---------- efeitos da bola ---------- */
 // partículas em coordenadas do mundo: poeira de saibro no quique, faíscas na raquetada
 function bounceFx(b, impact){
@@ -1479,7 +1540,7 @@ $('#introGo').addEventListener('click', e => { e.stopPropagation(); ac(); introC
 $('#btnIntro').addEventListener('click', introOpen);
 window.addEventListener('keydown', e => { if (!$('#intro').hidden && (e.key === ' ' || e.key === 'Enter')){ e.preventDefault(); introAdvance(); } });
 
-resetStats(); loadAvatars(); buildSelect(); buildCourts(); resize(); introOpen();
+resetStats(); loadAvatars(); loadSponsors(); buildSelect(); buildCourts(); resize(); introOpen();
 requestAnimationFrame(frame);
 </script>
 </body>
