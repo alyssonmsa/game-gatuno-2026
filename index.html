@@ -97,6 +97,7 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5v
 .card img{width:96px;height:96px;border-radius:50%;border:3px solid var(--chalk)}
 .card .cn{font-family:var(--display);font-size:17px;line-height:1.1}
 .card .ct{font-size:15px;color:var(--muted);font-weight:600;line-height:1.2}
+.court-card canvas{width:100%;max-width:150px;height:auto;aspect-ratio:3/5;border-radius:6px;border:3px solid var(--chalk)}
 .card .cs{font-size:13px;color:var(--ball);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 
 /* Ficha técnica: cabeçalho com setas, caricatura ao lado dos atributos, barra fixa com o botão de escolher */
@@ -255,6 +256,15 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5v
     </div>
   </div>
 
+  <section id="scrCourt" class="screen" hidden>
+    <div class="wrap">
+      <p class="eyebrow" id="courtWho"></p>
+      <h2>Escolha a quadra</h2>
+      <div class="grid" id="courtGrid"></div>
+      <div class="actions"><button class="btn ghost" id="courtBack">Voltar</button></div>
+    </div>
+  </section>
+
   <section id="scrEnd" class="screen" hidden>
     <div class="wrap">
       <img id="endAvatar" class="end-av" alt="">
@@ -271,6 +281,7 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5v
       <div class="actions">
         <button class="btn big" id="btnAgain">Revanche</button>
         <button class="btn ghost" id="btnOther">Outro gatuno</button>
+        <button class="btn ghost" id="btnCourt">Trocar quadra</button>
       </div>
     </div>
   </section>
@@ -347,7 +358,15 @@ const ARBITRO = [
 const $ = s => document.querySelector(s);
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const C = { hw:4.115, dhw:5.485, len:23.77, net:11.885, svc:6.4 };
-const CAM_H = 9, CAM_Z = -6, PZ = -1.2, OZ = 24.6, GRAV = 9.8, REST = 0.72, FX = 0.88;
+const CAM_H = 9, CAM_Z = -6, PZ = -1.2, OZ = 24.6, GRAV = 9.8;
+let REST = 0.72, FX = 0.88;
+// quadras: o saibro segura a bola; a quadra dura devolve mais rápido e não levanta poeira
+const QUADRAS = {
+  ita:   { nome:'ITA',   tipo:'Saibro',      externa:['#b45631','#c4623a'], interna:null,                  rest:.72, fx:.88, poeira:true },
+  prime: { nome:'Prime', tipo:'Quadra dura', externa:['#c95a26','#d9692f'], interna:['#2a7348','#2f8a55'], rest:.76, fx:.93, poeira:false },
+};
+let QUADRA = QUADRAS.ita;
+function setQuadra(id){ QUADRA = QUADRAS[id] || QUADRAS.ita; REST = QUADRA.rest; FX = QUADRA.fx; }
 let W = 0, H = 0, F = 300, horizon = 100, camX = 0, OPP_H = 120, boardRect = null, boardBehind = false;
 
 function resize(){
@@ -482,7 +501,7 @@ function noise(dur, vol, filt='bandpass', freq=1000, q=1, attack=.003, delay=0){
 }
 const sfx = {
   hit(){ noise(.07, .9, 'bandpass', 1800, 2); beep(320, .09, 'triangle', .5, 140); },
-  bounce(){ noise(.05, .35, 'lowpass', 500); beep(110, .07, 'sine', .35, 70); },
+  bounce(){ if (QUADRA.poeira){ noise(.05, .35, 'lowpass', 500); beep(110, .07, 'sine', .35, 70); } else { noise(.035, .45, 'bandpass', 1400, 1.5); beep(190, .05, 'sine', .3, 120); } },
   whistle(){
     [0, .22].forEach((d, i) => { const o = beep(2600, i ? .45 : .18, 'sine', .25, 2500, d); if (o){ const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 38; lg.gain.value = 90; l.connect(lg).connect(o.frequency); l.start(AC.currentTime + d); l.stop(AC.currentTime + d + .5); } });
   },
@@ -629,6 +648,7 @@ function startMatch(g){
   showScreen(null); $('#hud').hidden = false;
   renderScore(); updateTicker(); resize();
   $('#hint').hidden = false;
+  toast(`Quadra ${QUADRA.nome} · ${QUADRA.tipo}`, 1400);
   nextPoint();
 }
 function nextPoint(){
@@ -867,9 +887,9 @@ function drawScene(){
   // refletores
   ctx.fillStyle = 'rgba(255,248,210,.9)';
   [-0.35, 1.35].forEach(k => { ctx.beginPath(); ctx.arc(W*k*.74 + W*.13, ft.y*.35, 4, 0, 7); ctx.fill(); });
-  // saibro
+  // piso externo
   g = ctx.createLinearGradient(0, fb.y, 0, H);
-  g.addColorStop(0, COL.clay2); g.addColorStop(1, COL.clay);
+  g.addColorStop(0, QUADRA.externa[0]); g.addColorStop(1, QUADRA.externa[1]);
   ctx.fillStyle = g; ctx.fillRect(0, fb.y, W, H - fb.y);
   // alambrado
   ctx.fillStyle = COL.fence; ctx.fillRect(0, ft.y, W, fb.y - ft.y);
@@ -877,6 +897,13 @@ function drawScene(){
   const step = 7; for (let x = -(fb.y-ft.y); x < W; x += step){ ctx.moveTo(x, fb.y); ctx.lineTo(x + (fb.y-ft.y), ft.y); ctx.moveTo(x + (fb.y-ft.y), fb.y); ctx.lineTo(x, ft.y); }
   ctx.stroke();
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(0, fb.y, W, 3);
+  // piso interno (quadra dura): pintado até as linhas de duplas
+  if (QUADRA.interna){
+    const a = proj(-C.dhw,0,0), b = proj(C.dhw,0,0), c = proj(C.dhw,0,C.len), d = proj(-C.dhw,0,C.len);
+    g = ctx.createLinearGradient(0, d.y, 0, a.y);
+    g.addColorStop(0, QUADRA.interna[0]); g.addColorStop(1, QUADRA.interna[1]);
+    ctx.fillStyle = g; poly([a, b, c, d]); ctx.fill();
+  }
   // linhas
   const farZ = C.len + (S.line && S.line.kind === 'base' ? S.line.cur : 0);
   const sideShift = sign => (S.line && S.line.kind === 'side' && S.line.sign === sign) ? S.line.cur : 0;
@@ -892,19 +919,19 @@ function drawScene(){
   // marca da bola
   if (S.mark && (S.mode === 'cheat' || S.mode === 'pointover')){
     const p = proj(S.mark.x, 0, S.mark.z), rx = Math.max(4, p.s*.2);
-    ctx.fillStyle = 'rgba(90,30,10,.55)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.35, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = QUADRA.poeira ? 'rgba(90,30,10,.55)' : 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.35, 0, 0, 7); ctx.fill();
   }
 }
 /* ---------- efeitos da bola ---------- */
 // partículas em coordenadas do mundo: poeira de saibro no quique, faíscas na raquetada
 function bounceFx(b, impact){
-  const n = Math.min(14, 4 + impact*1.3|0);
+  const n = QUADRA.poeira ? Math.min(14, 4 + impact*1.3|0) : 0;
   for (let i = 0; i < n; i++){
     const a = Math.random()*Math.PI*2, sp = rand(.4, 1.3)*Math.min(1.6, impact/4);
     S.fx.push({ kind:'dust', x:b.x, y:.02, z:b.z, vx:Math.cos(a)*sp + b.vx*.08, vy:rand(.6, 1.6)*Math.min(1.5, impact/5), vz:Math.sin(a)*sp + b.vz*.08, life:0, max:rand(.45, .8), r:rand(.06, .13) });
   }
   S.fx.push({ kind:'ring', x:b.x, y:0, z:b.z, life:0, max:.35 });
-  S.marks.push({ x:b.x, z:b.z, t:S.clock }); if (S.marks.length > 8) S.marks.shift();
+  if (QUADRA.poeira){ S.marks.push({ x:b.x, z:b.z, t:S.clock }); if (S.marks.length > 8) S.marks.shift(); }
 }
 function hitFx(b){
   S.fx.push({ kind:'flash', x:b.x, y:b.y, z:b.z, life:0, max:.18 });
@@ -1153,7 +1180,7 @@ function frame(now){
 
 /* ---------- UI ---------- */
 function showScreen(id){
-  ['#scrTitle','#scrSelect','#scrEnd'].forEach(s => $(s).hidden = s !== id);
+  ['#scrTitle','#scrSelect','#scrCourt','#scrEnd'].forEach(s => $(s).hidden = s !== id);
 }
 const CALL = ['0','15','30','40'];
 function renderScore(fake){
@@ -1227,7 +1254,46 @@ function closeFicha(){ $('#ficha').hidden = true; }
 $('#fcPrev').addEventListener('click', () => openFicha(fichaIdx - 1));
 $('#fcNext').addEventListener('click', () => openFicha(fichaIdx + 1));
 $('#fcBack').addEventListener('click', closeFicha);
-$('#fcPlay').addEventListener('click', () => { closeFicha(); startMatch(GATUNOS[fichaIdx]); });
+$('#fcPlay').addEventListener('click', () => { closeFicha(); openCourts(GATUNOS[fichaIdx]); });
+
+/* ---------- escolha da quadra ---------- */
+let courtChar = null;
+function drawCourtPreview(cvs, q){
+  const x = cvs.getContext('2d'), w = cvs.width, h = cvs.height;
+  x.fillStyle = q.externa[1]; x.fillRect(0, 0, w, h);
+  // vista de cima: 36.6 m x 18.3 m de área, quadra de 23.77 x 10.97
+  const k = Math.min(w/18.3, h/36.6)*.92, cx = w/2, cy = h/2;
+  const R = (x0, z0, x1, z1) => [cx + x0*k, cy + z0*k, (x1 - x0)*k, (z1 - z0)*k];
+  if (q.interna){ x.fillStyle = q.interna[1]; x.fillRect(...R(-C.dhw, -C.len/2, C.dhw, C.len/2)); }
+  x.strokeStyle = '#f6efe3'; x.lineWidth = Math.max(1.5, k*.09);
+  x.strokeRect(...R(-C.dhw, -C.len/2, C.dhw, C.len/2));
+  x.strokeRect(...R(-C.hw, -C.len/2, C.hw, C.len/2));
+  x.beginPath();
+  x.moveTo(cx - C.hw*k, cy - C.svc*k); x.lineTo(cx + C.hw*k, cy - C.svc*k);
+  x.moveTo(cx - C.hw*k, cy + C.svc*k); x.lineTo(cx + C.hw*k, cy + C.svc*k);
+  x.moveTo(cx, cy - C.svc*k); x.lineTo(cx, cy + C.svc*k);
+  x.stroke();
+  x.strokeStyle = '#1b1b1b'; x.lineWidth = Math.max(2, k*.18);
+  x.beginPath(); x.moveTo(cx - (C.dhw + .9)*k, cy); x.lineTo(cx + (C.dhw + .9)*k, cy); x.stroke();
+}
+function buildCourts(){
+  const box = $('#courtGrid'); box.innerHTML = '';
+  for (const [id, q] of Object.entries(QUADRAS)){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'card court-card';
+    b.innerHTML = '<canvas width="180" height="300"></canvas><span class="cn"></span><span class="ct"></span>';
+    b.querySelector('.cn').textContent = q.nome;
+    b.querySelector('.ct').textContent = q.tipo;
+    drawCourtPreview(b.querySelector('canvas'), q);
+    b.addEventListener('click', () => { setQuadra(id); startMatch(courtChar); });
+    box.appendChild(b);
+  }
+}
+function openCourts(g){
+  courtChar = g; S.char = g; S.mode = 'select';
+  $('#courtWho').textContent = `Contra ${g.nome}`;
+  showScreen('#scrCourt');
+}
+$('#courtBack').addEventListener('click', () => showScreen('#scrSelect'));
 // deslizar pro lado na foto troca de atleta
 let fcSwipe = null;
 $('.ficha-hero').addEventListener('pointerdown', e => fcSwipe = e.clientX);
@@ -1245,6 +1311,7 @@ window.addEventListener('keydown', e => {
 $('#btnPlay').addEventListener('click', () => { ac(); S.mode = 'select'; showScreen('#scrSelect'); });
 $('#btnAgain').addEventListener('click', () => startMatch(S.char));
 $('#btnOther').addEventListener('click', () => { S.mode = 'select'; showScreen('#scrSelect'); });
+$('#btnCourt').addEventListener('click', () => openCourts(S.char));
 $('#btnQuit').addEventListener('click', () => {
   S.mode = 'select'; $('#hud').hidden = true; $('#hint').hidden = true; $('#cheatCard').hidden = true; $('#toast').hidden = true;
   S.ball = null; S.ball2 = null; S.fx = []; S.marks = []; S.pigeon = null; S.line = null; S.netRaise = 0; S.opp.pose = 'idle';
@@ -1280,7 +1347,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') S.aimKey = 0; });
 
 window.addEventListener('resize', resize);
-resetStats(); loadAvatars(); buildSelect(); resize();
+resetStats(); loadAvatars(); buildSelect(); buildCourts(); resize();
 requestAnimationFrame(frame);
 </script>
 </body>
