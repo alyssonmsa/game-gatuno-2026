@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f2219">
+<meta name="description" content="Tente ganhar um ponto do Gatuno. Só um. Jogo do Troféu Gatuno de Tênis da ATP – Amigos Tênis Prime.">
+<meta property="og:title" content="Gatuno de Tênis">
+<meta property="og:description" content="Tente ganhar um ponto do Gatuno. Só um.">
+<meta property="og:image" content="https://alyssonmsa.github.io/game-gatuno-2026/sprites/logo.png">
+<meta property="og:url" content="https://alyssonmsa.github.io/game-gatuno-2026/">
+<meta property="og:type" content="website">
+<link rel="icon" href="sprites/logo.png">
+<link rel="apple-touch-icon" href="sprites/logo.png">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Gatuno de Tênis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
+<style>
+/* Layout: canvas de quadra de saibro em tela cheia; placar de clube no topo; telas e cartões sobrepostos. Visual único (noite de clube), sem tema claro. */
+:root{
+  --night:#0f2219;
+  --fence:#1c3a2a;
+  --board:#13291d;
+  --clay:#c4623a;
+  --chalk:#f6efe3;
+  --ball:#e2f04a;
+  --alarm:#ff4f3a;
+  --ok:#5fd38a;
+  --ink:#0b1711;
+  --muted:#a9bfae;
+  --display:'Bungee', Impact, 'Arial Black', sans-serif;
+  --body:'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--night);color:var(--chalk);font-family:var(--body);font-size:18px;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:100%;overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* HUD */
+#hud{position:absolute;inset:0 0 auto;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-block:10px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));pointer-events:none}
+#hud > div{transition:opacity .2s}
+#hud > div.behind{opacity:.3}
+.board{background:var(--board);border:2px solid var(--fence);border-radius:6px;padding:4px 8px;box-shadow:0 3px 0 rgba(0,0,0,.35);min-width:0}
+.board .row{display:grid;grid-template-columns:minmax(0,1fr) 24px 38px;align-items:center;gap:6px;font-weight:700;font-size:15px;line-height:1.3}
+.board .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw;text-transform:uppercase;letter-spacing:.04em}
+.board .g,.board .p{font-family:var(--display);text-align:center;font-variant-numeric:tabular-nums}
+.board .p{background:var(--ink);border-radius:3px;color:var(--ball)}
+.board .row.opp .nm::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ball);margin-left:6px;vertical-align:middle}
+.board .p.fake{color:var(--ok)}
+.board .p.glitch{animation:glitch .5s steps(2) 2}
+@keyframes glitch{0%{transform:translate(2px,-1px);color:var(--alarm)}50%{transform:translate(-2px,1px)}100%{transform:none}}
+.ticker{margin-top:4px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.03em;text-transform:uppercase}
+.ticker b{color:var(--chalk);font-variant-numeric:tabular-nums}
+.ticker b.zero{color:var(--alarm)}
+.hud-r{display:flex;gap:8px;pointer-events:auto}
+#btnSoundFloat{position:absolute;top:10px;right:max(16px, env(safe-area-inset-right, 0px));z-index:5}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:2px solid var(--fence);background:var(--board);color:var(--chalk);font-size:18px;cursor:pointer;display:grid;place-items:center}
+.icon-btn:focus-visible,.btn:focus-visible,.card:focus-visible{outline:3px solid var(--ball);outline-offset:2px}
+
+#toast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);background:var(--ink);border:2px solid var(--chalk);padding:10px 18px;border-radius:6px;font-weight:700;font-size:20px;text-align:center;max-width:calc(100% - 32px);pointer-events:none;animation:pop .25s ease-out}
+#hint{position:absolute;left:50%;bottom:calc(8% + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:rgba(11,23,17,.85);padding:8px 14px;border-radius:999px;font-weight:600;font-size:17px;text-align:center;width:max-content;max-width:calc(100% - 32px);pointer-events:none}
+#hint span{display:inline-block;animation:nudge 1s ease-in-out infinite;color:var(--ball)}
+@keyframes nudge{50%{transform:translateY(-6px)}}
+@keyframes pop{from{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+
+/* Telas */
+.screen{position:absolute;inset:0;overflow-y:auto;padding-block:24px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));background:linear-gradient(180deg, rgba(15,34,25,.92) 0%, rgba(15,34,25,.78) 55%, rgba(15,34,25,.55) 100%);display:flex;flex-direction:column;align-items:center}
+.wrap{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px;margin-block:auto}
+.eyebrow{margin:0;font-weight:700;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--ball)}
+h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(46px,15vw,84px);line-height:.92;text-wrap:balance;color:var(--chalk);text-shadow:4px 4px 0 var(--clay),8px 8px 0 rgba(0,0,0,.35)}
+h1 em{font-style:normal;color:var(--ball)}
+h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7.5vw,38px);line-height:1.05;text-wrap:balance}
+.logo{width:clamp(130px,40vw,180px);height:auto;aspect-ratio:1;border-radius:50%;border:4px solid var(--ball);box-shadow:0 6px 0 rgba(0,0,0,.35);animation:badge .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes badge{from{transform:rotate(-25deg) scale(.6);opacity:0}}
+.lede{margin:0;font-size:22px;font-weight:600;line-height:1.25;max-width:32ch}
+.howto{margin:0;color:var(--muted);font-size:17px;line-height:1.35;max-width:40ch}
+.btn{font-family:var(--display);font-size:18px;border:0;border-radius:6px;padding:14px 18px;background:var(--chalk);color:var(--ink);cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.4);transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn.big{font-size:20px;padding:16px 22px}
+.btn.alarm{background:var(--alarm);color:var(--chalk)}
+.btn.ghost{background:transparent;color:var(--chalk);box-shadow:inset 0 0 0 2px var(--chalk)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .btn{flex:1 1 140px}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;background:var(--board);border:2px solid var(--fence);border-radius:8px;padding:14px 10px;color:var(--chalk);font-family:var(--body);cursor:pointer;transition:transform .1s,border-color .1s}
+.card:hover{border-color:var(--ball)}
+.card:active{transform:scale(.97)}
+.card img{width:96px;height:96px;border-radius:50%;border:3px solid var(--chalk)}
+.card .cn{font-family:var(--display);font-size:17px;line-height:1.1}
+.card .ct{font-size:15px;color:var(--muted);font-weight:600;line-height:1.2}
+.card .cs{font-size:13px;color:var(--ball);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+
+/* Ficha técnica: cabeçalho com setas, caricatura ao lado dos atributos, barra fixa com o botão de escolher */
+#ficha{position:absolute;inset:0;display:flex;flex-direction:column;background:rgba(15,34,25,.97);animation:fadein .2s ease-out}
+@keyframes fadein{from{opacity:0}}
+.ficha-scroll{flex:1;min-height:0;overflow-y:auto;padding-block:14px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column}
+.ficha-card{width:100%;max-width:520px;margin:auto;display:flex;flex-direction:column;gap:10px}
+.ficha-top{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;text-align:center}
+.ficha-id h2{font-size:clamp(24px,7vw,32px);margin-top:2px}
+.ficha-id .eyebrow{font-size:12px}
+.ficha-nav{font-size:24px;line-height:1}
+.ficha-slogan{margin:0;text-align:center;font-size:16px;font-weight:600;line-height:1.2;color:var(--muted);text-wrap:balance}
+.ficha-slogan::before{content:"“"}
+.ficha-slogan::after{content:"”"}
+.ficha-main{display:grid;grid-template-columns:38% minmax(0,1fr);gap:12px;align-items:center;background:var(--board);border:2px solid var(--fence);border-radius:10px;padding:10px}
+.ficha-hero{position:relative;touch-action:pan-y;height:clamp(170px,34vh,260px);display:flex;justify-content:center;align-items:flex-end;border-radius:6px;overflow:hidden;
+  background:linear-gradient(transparent calc(82% - 2px), rgba(246,239,227,.7) calc(82% - 2px), rgba(246,239,227,.7) 82%, transparent 82%),
+    radial-gradient(120% 90% at 50% 100%, #d0703f 0%, var(--clay) 55%, #9e4a28 100%)}
+.ficha-hero img{height:94%;max-width:92%;object-fit:contain;object-position:bottom;
+  filter:drop-shadow(2px 0 0 #fbf6ec) drop-shadow(-2px 0 0 #fbf6ec) drop-shadow(0 2px 0 #fbf6ec) drop-shadow(0 -2px 0 #fbf6ec) drop-shadow(0 6px 8px rgba(0,0,0,.35));
+  animation:enter .3s cubic-bezier(.2,1.4,.4,1)}
+@keyframes enter{from{transform:translateY(16px) scale(.95);opacity:0}}
+.stats-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.stat-top{display:flex;justify-content:space-between;align-items:baseline;gap:4px}
+.stat-name{font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.stat-val{font-family:var(--display);font-size:15px;font-variant-numeric:tabular-nums;flex:none}
+.stat-val small{font-size:11px}
+.stat-bar{position:relative;height:7px;margin-top:3px;background:var(--ink);border-radius:2px;overflow:hidden}
+/* marcas a cada 10% no trilho */
+.stat-bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--board) calc(10% - 1px) 10%)}
+.stat-fill{height:100%;width:0;background:var(--ball);transition:width .6s cubic-bezier(.2,.9,.3,1)}
+.stat.max .stat-fill{background:var(--alarm)}
+.stat.max .stat-val{color:var(--alarm)}
+.stat.zero .stat-val{color:var(--muted)}
+.stat.best .stat-name{color:var(--ball)}
+.stat.best .stat-name::after{content:" ★"}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.chip{font-weight:700;font-size:13px;padding:2px 9px;border-radius:999px;border:2px solid var(--ball);color:var(--ball)}
+.chips::before{content:"Rouba com:";width:100%;text-align:center;font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ficha-bar{flex:none;display:flex;gap:10px;justify-content:center;padding-top:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));background:var(--board);border-top:2px solid var(--fence)}
+.ficha-bar .btn{max-width:340px}
+.ficha-bar .btn.big{flex:1 1 auto;background:var(--ball)}
+.ficha-bar .btn.ghost{flex:none}
+
+/* Cartão do roubo */
+#cheatCard{position:absolute;left:0;right:0;bottom:0;padding-top:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));background:var(--chalk);color:var(--ink);border-top:6px solid var(--alarm);animation:up .3s ease-out}
+#cheatCard .inner{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+@keyframes up{from{transform:translateY(100%)}}
+.cc-head{display:flex;gap:12px;align-items:center}
+.cc-head img{width:72px;height:72px;border-radius:50%;border:3px solid var(--ink);flex:none}
+.cc-name{font-family:var(--display);font-size:20px;line-height:1.05}
+.cc-type{font-weight:800;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--alarm)}
+.bubble{margin:0;font-family:var(--display);font-size:clamp(20px,6vw,26px);line-height:1.15;text-wrap:balance}
+.replay{margin:0;font-size:17px;font-weight:600;color:#3d5446;line-height:1.3}
+.replay::before{content:"REPLAY ";font-weight:800;color:var(--clay);letter-spacing:.08em}
+.ref{margin:0;font-size:17px;font-weight:700;background:var(--ink);color:var(--chalk);padding:8px 12px;border-radius:6px;animation:pop2 .25s ease-out}
+.ref::before{content:"ÁRBITRO: ";color:var(--ball)}
+@keyframes pop2{from{transform:scale(.9);opacity:0}}
+#cheatCard .btn{box-shadow:0 4px 0 rgba(0,0,0,.25)}
+#cheatCard .btn.ghost{color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+
+/* Fim */
+.end-av{width:132px;height:132px;border-radius:50%;border:4px solid var(--ball);align-self:center}
+.stats{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stats div{background:var(--board);border:2px solid var(--fence);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column-reverse;gap:2px}
+.stats dt{font-size:14px;font-weight:600;color:var(--muted);line-height:1.2}
+.stats dd{margin:0;font-family:var(--display);font-size:28px;font-variant-numeric:tabular-nums}
+.stats dd.red{color:var(--alarm)}
+.verdict{margin:0;font-size:20px;font-weight:700;line-height:1.3}
+.trophy{margin:0;font-size:16px;color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="cv" aria-label="Quadra de tênis"></canvas>
+
+  <div id="hud" hidden>
+    <div>
+      <div class="board" aria-live="polite">
+        <div class="row me"><span class="nm">Você</span><span class="g" id="gMe">0</span><span class="p" id="pMe">0</span></div>
+        <div class="row opp"><span class="nm" id="nmOpp">Gatuno</span><span class="g" id="gOpp">0</span><span class="p" id="pOpp">0</span></div>
+      </div>
+      <div class="ticker">Ganhos de verdade <b id="tkTrue">0</b> · Valeram <b class="zero">0</b></div>
+    </div>
+    <div class="hud-r">
+      <button class="icon-btn sound-btn" id="btnMute" aria-label="Desligar som">🔊</button>
+      <button class="icon-btn" id="btnQuit" aria-label="Sair da partida">✕</button>
+    </div>
+  </div>
+
+  <button class="icon-btn sound-btn" id="btnSoundFloat" aria-label="Desligar som">🔊</button>
+  <div id="toast" hidden></div>
+  <div id="hint" hidden><span>☝</span> Deslize pra cima quando a bola chegar</div>
+
+  <section id="scrTitle" class="screen">
+    <div class="wrap">
+      <img class="logo" src="sprites/logo.png" alt="ATP Amigos Tênis Prime, 10 anos" width="180" height="180">
+      <p class="eyebrow">ATP · Troféu Gatuno de Tênis · 2026</p>
+      <h1>GATUNO<br>DE <em>TÊNIS</em></h1>
+      <p class="lede">Escolha um colega e tente ganhar um ponto. Só um.</p>
+      <div class="actions"><button class="btn big" id="btnPlay">Escolher adversário</button></div>
+      <p class="howto">Deslize o dedo pra cima quando a bola chegar perto de você. Pra onde o dedo vai, a bola vai. Dedo mais longo, bola mais funda. O seu jogador corre sozinho.</p>
+    </div>
+  </section>
+
+  <section id="scrSelect" class="screen" hidden>
+    <div class="wrap">
+      <p class="eyebrow">Escolha o adversário</p>
+      <h2>Contra quem você vai perder hoje?</h2>
+      <p class="howto">Toque num atleta pra ver a ficha técnica.</p>
+      <div class="grid" id="charGrid"></div>
+    </div>
+  </section>
+
+  <section id="ficha" hidden aria-labelledby="fcName">
+    <div class="ficha-scroll">
+      <div class="ficha-card">
+        <div class="ficha-top">
+          <button class="icon-btn ficha-nav" id="fcPrev" aria-label="Atleta anterior">‹</button>
+          <div class="ficha-id">
+            <p class="eyebrow">Ficha técnica · <span id="fcNum"></span></p>
+            <h2 id="fcName"></h2>
+          </div>
+          <button class="icon-btn ficha-nav" id="fcNext" aria-label="Próximo atleta">›</button>
+        </div>
+        <p class="ficha-slogan" id="fcSlogan"></p>
+        <div class="ficha-main">
+          <div class="ficha-hero"><img id="fcBody" alt=""></div>
+          <ul class="stats-list" id="fcStats"></ul>
+        </div>
+        <div class="chips" id="fcRoubos" aria-label="Roubos favoritos"></div>
+      </div>
+    </div>
+    <div class="ficha-bar">
+      <button class="btn ghost" id="fcBack">Voltar</button>
+      <button class="btn big" id="fcPlay">Escolher</button>
+    </div>
+  </section>
+
+  <div id="cheatCard" hidden>
+    <div class="inner">
+      <div class="cc-head">
+        <img id="ccAvatar" alt="">
+        <div><div class="cc-type" id="ccType"></div><div class="cc-name" id="ccName"></div></div>
+      </div>
+      <p class="bubble" id="ccSay"></p>
+      <p class="replay" id="ccNote"></p>
+      <p class="ref" id="ccRef" hidden></p>
+      <div class="actions">
+        <button class="btn alarm" id="btnProtest">Protestar</button>
+        <button class="btn ghost" id="btnNext">Próximo ponto</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="scrEnd" class="screen" hidden>
+    <div class="wrap">
+      <img id="endAvatar" class="end-av" alt="">
+      <p class="eyebrow">Fim de jogo</p>
+      <h2 id="endTitle"></h2>
+      <dl class="stats">
+        <div><dt>Pontos que você ganhou de verdade</dt><dd id="stTrue">0</dd></div>
+        <div><dt>Pontos que valeram</dt><dd class="red">0</dd></div>
+        <div><dt>Protestos negados</dt><dd id="stProt">0</dd></div>
+        <div><dt>Roubo favorito dele</dt><dd id="stFav" style="font-size:20px">—</dd></div>
+      </dl>
+      <p class="verdict" id="endVerdict"></p>
+      <p class="trophy">Candidato oficial ao Troféu Gatuno de Tênis.</p>
+      <div class="actions">
+        <button class="btn big" id="btnAgain">Revanche</button>
+        <button class="btn ghost" id="btnOther">Outro gatuno</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   PERSONAGENS — troque pelos seus colegas.
+   foto: rosto recortado (placar, cartões). corpo: caricatura inteira sem fundo (na quadra).
+   Sem foto/corpo = desenho provisório.
+   roubos: os roubos favoritos dele (aparecem mais vezes).
+   frases: opcional, sobrescreve a fala de um roubo. Ex.: { fora: 'FORA! Juro!' }
+   Roubos disponíveis: fora, linha, segundaBola, placar, naoPronto, celular, pombo, caibra (e "rede", que acontece no meio do ponto)
+   ========================================================= */
+const GATUNOS = [
+  { id:'afonso',    nome:'Afonso',    titulo:'Forehand apoiado na perna esquerda', cor:'#d9b42a', roubos:['naoPronto','fora'],
+    frases:{ naoPronto:'Peraí, eu tava na perna errada! Repete… e o ponto é meu.' } },
+  { id:'bodo',      nome:'Bodo',      titulo:'Rouba de set inteiro', cor:'#2b2b2b', roubos:['placar','segundaBola'],
+    frases:{ placar:'Ponto? Isso aí já foi o set inteiro. Meu.' } },
+  { id:'ezon',      nome:'Ezon',      titulo:'Claramente com problemas de vista', cor:'#c8202f', roubos:['fora','linha'],
+    frases:{ fora:'FORA! Eu vi… acho que vi. Vi sim. FORA!' } },
+  { id:'luciano',   nome:'Luciano',   titulo:'Só ganha de Leo Tito', cor:'#1f8a8a', roubos:['caibra','celular'],
+    frases:{ celular:'Peraí, é o Leo Tito Pateta. Ponto meu.' } },
+  { id:'moucherek', nome:'Moucherek', titulo:'Formiga? Leva tudo pro …', cor:'#2b3f8f', roubos:['segundaBola','placar'],
+    frases:{ segundaBola:'Levo tudo pro buraco. Inclusive o ponto.' } },
+  { id:'neskau',    nome:'Neskau',    titulo:'Sabor que alimenta', cor:'#a4d22e', roubos:['caibra','pombo'],
+    frases:{ caibra:'Hipoglicemia! Preciso de um Neskau. Ponto meu.' } },
+  { id:'patrick',   nome:'Patrick',   titulo:'Não rouba ponto, subtrai de forma elegante', cor:'#5d6b2f', roubos:['placar','linha'],
+    frases:{ placar:'Eu não roubei. Subtraí. Com elegância.', linha:'Ajustei a linha com bom gosto. Fora.' } },
+  { id:'ricardo',   nome:'Ricardo',   titulo:'Se tiver juiz não joga', cor:'#2f6fd6', roubos:['fora','rede','celular'],
+    frases:{ fora:'Sem juiz, quem decide sou eu: FORA.' } },
+  { id:'sandro',    nome:'Sandro',    titulo:'Ensinou todo mundo a gatunagem', cor:'#3b4a55', roubos:['linha','segundaBola','pombo','rede'],
+    frases:{ linha:'Quem você acha que ensinou a linha a andar? Fora.' } },
+];
+for (const g of GATUNOS){ g.foto = g.foto ?? `sprites/${g.id}_rosto.png`; g.corpo = g.corpo ?? `sprites/${g.id}.png`; g.pele ??= '#e2b48c'; g.cabelo ??= '#2a1a12'; }
+// ficha técnica (0–100)
+const ATRIBUTOS = [ ['gatunagem','Gatunagem'], ['pompex','Saque Pompex'], ['facao','Facão'], ['footfault','Foot Fault'], ['balao','Balão'] ];
+const FICHAS = {
+  afonso:    { gatunagem:100, pompex:60,  facao:10,  footfault:76,  balao:70 },
+  bodo:      { gatunagem:100, pompex:10,  facao:98,  footfault:50,  balao:10 },
+  ezon:      { gatunagem:100, pompex:88,  facao:100, footfault:51,  balao:80 },
+  luciano:   { gatunagem:100, pompex:100, facao:70,  footfault:51,  balao:100 },
+  moucherek: { gatunagem:100, pompex:70,  facao:20,  footfault:80,  balao:20 },
+  neskau:    { gatunagem:100, pompex:100, facao:50,  footfault:10,  balao:100 },
+  patrick:   { gatunagem:100, pompex:30,  facao:80,  footfault:25,  balao:37 },
+  ricardo:   { gatunagem:100, pompex:25,  facao:92,  footfault:80,  balao:21 },
+  sandro:    { gatunagem:100, pompex:100, facao:0,   footfault:100, balao:100 },
+};
+const GAMES_TO_WIN = 3;
+
+const ROUBOS = {
+  fora:        { nome:'Grito de FORA',     falas:['FORA! Vi daqui, claríssimo.','FORA! Fora fora fora.','Saiu. Uns dois dedos. Fora.'], nota:m=>`a bola quicou ${m} cm dentro da quadra.` },
+  linha:       { nome:'Linha móvel',       falas:['Fora. A linha é aqui, sempre foi.','Olha a marca: fora. A linha não mente.'], nota:m=>`a linha andou ${m} cm depois que a bola quicou.` },
+  segundaBola: { nome:'Bola do bolso',     falas:['Opa, essa aqui é que valeu.','A sua foi treino. Essa é a oficial.'], nota:()=>'ele tirou uma segunda bola do bolso. Ninguém sabe de onde.' },
+  placar:      { nome:'Placar criativo',   falas:['Quinze a zero… pra mim. Fiz a conta.','Ponto seu? Não, ponto meu. Confia.'], nota:()=>'o placar foi atualizado por ele mesmo, sem testemunhas.' },
+  naoPronto:   { nome:'Não tava pronto',   falas:['Eu não tava pronto! Repete… e o ponto é meu.','Peraí, eu tava amarrando o tênis.'], nota:()=>'ele estava pronto. Estava até sorrindo.' },
+  celular:     { nome:'Ligação urgente',   falas:['Peraí, tava no telefone. Ponto meu.','Era minha mulher ligando. Ponto meu por respeito.'], nota:()=>'a ligação durou exatamente o seu ponto.' },
+  pombo:       { nome:'Let do pombo',      falas:['Let! Passou um pombo. Ponto meu.','Pombo na quadra! Ponto anulado… a meu favor.'], nota:()=>'o pombo, procurado depois, negou ter passado.' },
+  caibra:      { nome:'Cãibra súbita',     falas:['Ai, cãibra! Ponto meu por desistência sua.','Tô machucado. Você não tem coração? Ponto meu.'], nota:()=>'ele se recuperou em 0,4 segundo.' },
+  rede:        { nome:'Rede elevadiça',    falas:['Rede regulamentar. Do meu clube.','Bateu na rede. Acontece. Comigo nunca.'], nota:()=>'a rede subiu quase dois metros com a bola no ar.' },
+};
+const ARBITRO = [
+  'Challenge negado.',
+  'Não vi, mas confio nele.',
+  'O replay foi roubado também.',
+  'O árbitro é compadre dele.',
+  'Protesto anotado no livro de reclamações. O livro não tem páginas.',
+  'Advertência por reclamação. Mais um ponto pra ele.',
+  'O árbitro foi almoçar e deixou ele no lugar.',
+  'Procura no HD da EMIVE',
+];
+
+/* ================= motor ================= */
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const C = { hw:4.115, dhw:5.485, len:23.77, net:11.885, svc:6.4 };
+const CAM_H = 9, CAM_Z = -6, PZ = -1.2, OZ = 24.6, GRAV = 9.8, REST = 0.72, FX = 0.88;
+let W = 0, H = 0, F = 300, horizon = 100, camX = 0, OPP_H = 120, boardRect = null, boardBehind = false;
+
+function resize(){
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  // a cabeça do adversário precisa ficar abaixo do placar: encolhe a quadra até caber
+  const board = document.querySelector('#hud > div');
+  if (board && board.offsetHeight){ const b = board.getBoundingClientRect(); boardRect = { l:b.left - r.left, r:b.right - r.left, t:b.top - r.top, b:b.bottom - r.top }; }
+  else boardRect = null;
+  const hudBottom = (boardRect ? boardRect.b : 96) + 10;
+  F = Math.min(0.69*W, 0.41*H);
+  for (let i = 0; i < 20; i++){
+    horizon = H*0.88 - CAM_H*F/(PZ - CAM_Z);
+    const feet = horizon + CAM_H*F/(OZ - CAM_Z);
+    OPP_H = Math.max(F/(OZ - CAM_Z)*3.4, H*.17);
+    if (feet - OPP_H*1.04 >= hudBottom) break;
+    // primeiro tenta diminuir o adversário; depois desce a quadra encolhendo o zoom
+    OPP_H = Math.max(H*.12, feet - hudBottom - 4);
+    if (feet - OPP_H*1.04 >= hudBottom) break;
+    F *= .95;
+  }
+}
+// a bola perto do adversário sobe na mesma proporção do desenho exagerado dele,
+// assim ela sai da raquete e não das canelas
+function ballLift(z){
+  // limitado e só nos últimos metros: um exagero maior faz a bola "pular" no ar
+  const s = F/(OZ - CAM_Z), ex = Math.min(2.2, OPP_H/(1.75*s));
+  const k = clamp((z - 19)/(OZ - 1 - 19), 0, 1), e = k*k*(3 - 2*k);
+  return 1 + (ex - 1)*e;
+}
+function proj(x,y,z){ const d = Math.max(0.5, z - CAM_Z), s = F/d; return { x: W/2 + (x-camX)*s, y: horizon + (CAM_H-y)*s, s }; }
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const rand = (a,b) => a + Math.random()*(b-a);
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+/* ---------- avatares ---------- */
+function makeAvatar(g){
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.fillStyle = g.cor; x.beginPath(); x.arc(128,128,128,0,7); x.fill();
+  x.fillStyle = 'rgba(0,0,0,.18)'; x.beginPath(); x.arc(128,250,120,0,7); x.fill();
+  // rosto
+  x.fillStyle = g.pele; x.beginPath(); x.ellipse(128,138,78,90,0,0,7); x.fill();
+  x.beginPath(); x.ellipse(52,140,14,20,0,0,7); x.ellipse(204,140,14,20,0,0,7); x.fill();
+  // cabelo
+  x.fillStyle = g.cabelo; x.beginPath(); x.ellipse(128,72,82,46,0,Math.PI,0); x.lineTo(210,95); x.quadraticCurveTo(128,60,46,95); x.fill();
+  // máscara de gatuno
+  x.fillStyle = '#111'; x.beginPath(); x.roundRect(44,104,168,46,23); x.fill();
+  x.beginPath(); x.moveTo(46,120); x.lineTo(16,104); x.lineTo(22,132); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.ellipse(98,127,19,14,0,0,7); x.ellipse(158,127,19,14,0,0,7); x.fill();
+  x.fillStyle = '#111'; x.beginPath(); x.arc(106,129,8,0,7); x.arc(166,129,8,0,7); x.fill();
+  // sobrancelhas safadas
+  x.strokeStyle = g.cabelo; x.lineWidth = 8; x.lineCap = 'round';
+  x.beginPath(); x.moveTo(76,96); x.lineTo(116,104); x.moveTo(140,104); x.lineTo(182,92); x.stroke();
+  // nariz e sorriso
+  x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 5; x.beginPath(); x.moveTo(128,140); x.quadraticCurveTo(120,170,134,172); x.stroke();
+  if (g.bigode){ x.fillStyle = g.cabelo; x.beginPath(); x.ellipse(110,186,26,10,-.2,0,7); x.ellipse(146,186,26,10,.2,0,7); x.fill(); }
+  x.strokeStyle = '#4a1b10'; x.lineWidth = 7; x.beginPath(); x.moveTo(96,198); x.quadraticCurveTo(134,226,168,192); x.stroke();
+  return c;
+}
+// contorno branco de figurinha, feito uma vez só: destaca a caricatura do saibro e esconde a borda do recorte
+function makeSticker(img){
+  const pad = 7, c = document.createElement('canvas'); c.width = img.width + pad*2; c.height = img.height + pad*2;
+  const x = c.getContext('2d');
+  for (let a = 0; a < Math.PI*2; a += Math.PI/8) x.drawImage(img, pad + Math.cos(a)*5, pad + Math.sin(a)*5);
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fbf6ec'; x.fillRect(0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'source-over'; x.drawImage(img, pad, pad);
+  return c;
+}
+function loadAvatars(){
+  for (const g of GATUNOS){
+    g.avatar = makeAvatar(g); g.avatarURL = g.avatar.toDataURL();
+    if (g.foto){
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+        x.fillStyle = g.cor; x.beginPath(); x.arc(128,128,128,0,7); x.fill(); x.clip();
+        const k = Math.max(256/img.width, 256/img.height), w = img.width*k, h = img.height*k;
+        x.drawImage(img, (256-w)/2, (256-h)/2, w, h);
+        g.avatar = c; g.avatarURL = c.toDataURL();
+        document.querySelectorAll(`img[data-av="${g.id}"]`).forEach(el => el.src = g.avatarURL);
+      };
+      img.src = g.foto;
+    }
+    if (g.corpo){
+      const body = new Image();
+      body.onload = () => g.body = makeSticker(body);
+      body.src = g.corpo;
+    }
+  }
+}
+
+/* ---------- som ---------- */
+let AC = null, OUT = null, NOISE = null, muted = false;
+// iPhone: 'playback' faz o som tocar mesmo com a chave de silencioso ligada (Safari 17+)
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
+function ac(){
+  if (!AC){
+    try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ AC = null; return null; }
+    OUT = AC.createDynamicsCompressor(); OUT.connect(AC.destination);
+    NOISE = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = NOISE.getChannelData(0); for (let i=0; i<d.length; i++) d[i] = Math.random()*2 - 1;
+  }
+  if (AC.state !== 'running') AC.resume().catch(()=>{});
+  return AC;
+}
+// destrava o áudio no primeiro toque (o iPhone só aceita dentro de um gesto)
+function unlockAudio(){
+  const a = ac(); if (!a) return;
+  const b = a.createBufferSource(); b.buffer = a.createBuffer(1, 1, 22050); b.connect(a.destination); b.start(0);
+  startMusic();
+  if (a.state === 'running') ['touchend','pointerup','click','keydown'].forEach(ev => document.removeEventListener(ev, unlockAudio, true));
+}
+['touchend','pointerup','click','keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, true));
+
+function beep(f, dur, type='sine', vol=.3, f2, delay=0){
+  if (muted) return; const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + delay;
+  o.type = type; o.frequency.setValueAtTime(f,t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t+dur);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol, t+.005); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t+dur+.05);
+  return o;
+}
+function noise(dur, vol, filt='bandpass', freq=1000, q=1, attack=.003, delay=0){
+  if (muted) return; const a = ac(); if (!a) return;
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + delay;
+  s.buffer = NOISE; s.loop = true; f.type = filt; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol, t+attack); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  s.connect(f).connect(g).connect(OUT); s.start(t, Math.random()*.5); s.stop(t+dur+.05);
+  return f;
+}
+const sfx = {
+  hit(){ noise(.07, .9, 'bandpass', 1800, 2); beep(320, .09, 'triangle', .5, 140); },
+  bounce(){ noise(.05, .35, 'lowpass', 500); beep(110, .07, 'sine', .35, 70); },
+  whistle(){
+    [0, .22].forEach((d, i) => { const o = beep(2600, i ? .45 : .18, 'sine', .25, 2500, d); if (o){ const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 38; lg.gain.value = 90; l.connect(lg).connect(o.frequency); l.start(AC.currentTime + d); l.stop(AC.currentTime + d + .5); } });
+  },
+  crowd(){ const f = noise(1.6, .5, 'bandpass', 500, .8, .35); if (f) f.frequency.exponentialRampToValueAtTime(260, AC.currentTime + 1.6); },
+  boo(){ noise(1.1, .45, 'lowpass', 380, 1, .2); beep(150, .9, 'sawtooth', .12, 95); },
+  point(){ beep(660, .12, 'triangle', .3); beep(880, .16, 'triangle', .3, null, .1); },
+  // miado de gato sintetizado: tom sobe e desce (mi-AAAU), com formantes que abrem e fecham a "boca"
+  meow(){
+    if (muted) return; const a = ac(); if (!a) return;
+    const one = (t0, dur, f0, fPeak, fEnd, vol) => {
+      const out = a.createGain(); out.connect(OUT);
+      out.gain.setValueAtTime(.0001, t0);
+      out.gain.exponentialRampToValueAtTime(vol, t0 + .07);
+      out.gain.setValueAtTime(vol, t0 + dur*.6);
+      out.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+      const lfo = a.createOscillator(), lfoG = a.createGain(); lfo.frequency.value = 7; lfoG.gain.value = 14; lfo.connect(lfoG);
+      const src = a.createGain(); src.gain.value = 1;
+      [['sawtooth', 1], ['square', 1.006]].forEach(([type, k]) => {
+        const o = a.createOscillator(); o.type = type;
+        o.frequency.setValueAtTime(f0*k, t0);
+        o.frequency.linearRampToValueAtTime(fPeak*k, t0 + dur*.35);
+        o.frequency.exponentialRampToValueAtTime(fEnd*k, t0 + dur);
+        lfoG.connect(o.frequency); o.connect(src); o.start(t0); o.stop(t0 + dur + .05);
+      });
+      // formantes: "m" fechado → "iá" aberto → "u" fechado
+      [[650, 1350, 560, 5, 3.2], [1900, 2900, 1100, 7, 2.2]].forEach(([fa, fb, fc, q, g]) => {
+        const f = a.createBiquadFilter(), fg = a.createGain(); f.type = 'bandpass'; f.Q.value = q; fg.gain.value = g;
+        f.frequency.setValueAtTime(fa, t0); f.frequency.linearRampToValueAtTime(fb, t0 + dur*.3); f.frequency.exponentialRampToValueAtTime(fc, t0 + dur);
+        src.connect(f).connect(fg).connect(out);
+      });
+      lfo.start(t0); lfo.stop(t0 + dur + .05);
+    };
+    const t = a.currentTime;
+    one(t, 1.05, 430, 820, 360, 1.4);          // MIAAAAU
+    one(t + 1.12, .55, 520, 900, 420, 1.1);    // miau!
+  },
+};
+
+/* ---------- música de fundo: marchinha de fliperama alegre em loop (Dó, Fá, Sol, Dó) ---------- */
+const MUSIC = { on:false, gain:null, timer:0, next:0, step:0, vol:.1 };
+const midi = m => 440*Math.pow(2, (m - 69)/12);
+const BPM = 138;
+const C_ = [60,64,67], F_ = [60,65,69], G_ = [59,62,67];
+const BARS = [ { ch:C_, root:48 }, { ch:F_, root:53 }, { ch:G_, root:55 }, { ch:C_, root:48 },
+               { ch:C_, root:48 }, { ch:F_, root:53 }, { ch:G_, root:55 }, { ch:C_, root:48 } ];
+// melodia: uma nota por colcheia (0 = pausa), 8 compassos
+const MEL = [
+  72,0,76,0, 79,0,76,79,   81,0,79,77, 76,0,77,0,   79,0,74,0, 71,74,79,0,   76,0,72,0, 0,0,72,74,
+  72,76,79,84, 0,79,76,0,  77,81,84,0, 81,0,77,0,   79,0,83,0, 86,0,83,79,   84,0,79,0, 72,0,0,0,
+];
+function mNote(f, t, dur, type, vol, lp){
+  const a = AC, o = a.createOscillator(), g = a.createGain(), fl = a.createBiquadFilter();
+  o.type = type; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = lp;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .008);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(fl).connect(g).connect(MUSIC.gain); o.start(t); o.stop(t + dur + .05);
+}
+function mNoise(t, dur, vol, type, freq){
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = NOISE; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f).connect(g).connect(MUSIC.gain); s.start(t, Math.random()*.5); s.stop(t + dur + .02);
+}
+function mKick(t){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+  g.gain.setValueAtTime(.5, t); g.gain.exponentialRampToValueAtTime(.0001, t + .15);
+  o.connect(g).connect(MUSIC.gain); o.start(t); o.stop(t + .17);
+}
+function musicTick(){
+  const a = AC, e8 = 60/BPM/2;
+  if (MUSIC.next < a.currentTime) MUSIC.next = a.currentTime + .05;   // volta de aba suspensa
+  while (MUSIC.next < a.currentTime + .25){
+    const t = MUSIC.next, i = MUSIC.step % 8, bar = BARS[Math.floor(MUSIC.step/8) % BARS.length];
+    const m = MEL[MUSIC.step % MEL.length];
+    if (m) mNote(midi(m), t, e8*.85, 'square', .045, 3200);                                   // melodia
+    if (i % 2 === 1) bar.ch.forEach(n => mNote(midi(n), t, e8*.45, 'square', .018, 1800));   // acorde no contratempo
+    if (i % 2 === 0) mNote(midi(bar.root + (i % 4 === 2 ? 7 : 0) - 12), t, e8*.9, 'triangle', .22, 600); // baixo pula: tônica e quinta
+    if (i % 4 === 0) mKick(t);                                                              // bumbo
+    if (i % 4 === 2) mNoise(t, .09, .12, 'bandpass', 1800);                                  // caixa
+    mNoise(t, .03, i % 2 ? .04 : .02, 'highpass', 8000);                                     // chimbal
+    MUSIC.step++; MUSIC.next += e8;
+  }
+}
+function startMusic(){
+  const a = ac(); if (!a || MUSIC.on || muted) return;
+  if (!MUSIC.gain){ MUSIC.gain = a.createGain(); MUSIC.gain.connect(a.destination); }
+  MUSIC.gain.gain.cancelScheduledValues(a.currentTime);
+  MUSIC.gain.gain.setValueAtTime(.0001, a.currentTime);
+  MUSIC.gain.gain.exponentialRampToValueAtTime(MUSIC.vol, a.currentTime + 2);
+  MUSIC.on = true; MUSIC.next = a.currentTime + .1;
+  MUSIC.timer = setInterval(musicTick, 60);
+}
+function stopMusic(){
+  if (!MUSIC.on) return; MUSIC.on = false; clearInterval(MUSIC.timer);
+  MUSIC.gain.gain.cancelScheduledValues(AC.currentTime);
+  MUSIC.gain.gain.setTargetAtTime(.0001, AC.currentTime, .15);
+}
+function setMuted(m){
+  muted = m;
+  document.querySelectorAll('.sound-btn').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', m ? 'Ligar som' : 'Desligar som'); });
+  if (m) stopMusic(); else startMusic();
+}
+document.addEventListener('visibilitychange', () => { if (!AC) return; document.hidden ? AC.suspend() : AC.resume(); });
+
+/* ---------- estado ---------- */
+const S = {
+  mode:'menu', char:GATUNOS[0], ball:null, ball2:null, clock:0, timer:0,
+  me:{ x:0, tx:0, swing:0 }, opp:{ x:0, tx:0, swing:0, speed:5, pose:'idle' },
+  pts:[0,0], games:[0,0], rally:0, serveSide:1, oppWill:true, preCheat:null, netRaise:0,
+  mark:null, line:null, pigeon:null, cheat:null, lastCheat:null, swipe:null, hits:0, aimKey:0,
+  stats:null, fx:[], marks:[],
+};
+function resetStats(){ S.stats = { trueWins:0, protests:0, used:{} }; }
+
+function newBall(x,y,z){ return { x,y,z, vx:0,vy:0,vz:0, bounces:0, side:null, last:null, dead:false, frozen:false, netted:false }; }
+function netTop(x){ const ax = Math.min(Math.abs(x), C.dhw+.9); return .914 + .156*(ax/(C.dhw+.9)) + S.netRaise; }
+
+function shoot(b, tx, tz, t, clear){
+  for (let i=0; i<40; i++){
+    b.vx = (tx-b.x)/t; b.vz = (tz-b.z)/t; b.vy = (-b.y + .5*GRAV*t*t)/t;
+    const tn = (C.net - b.z)/b.vz;
+    if (tn <= 0 || tn >= t) break;
+    if (b.y + b.vy*tn - .5*GRAV*tn*tn >= .95 + clear) break;
+    t += .05;
+  }
+  b.bounces = 0; b.side = null; b.netted = false;
+}
+function predict(b, targetZ, dir){
+  let {x,y,z,vx,vy,vz} = b, bo = 0, t = 0; const dt = 1/120;
+  for (let i=0; i<600; i++){
+    vy -= GRAV*dt; x += vx*dt; y += vy*dt; z += vz*dt; t += dt;
+    if (y <= 0 && vy < 0){ y = 0; vy = -vy*REST; vx *= FX; vz *= FX; bo++; }
+    if (bo >= 1 && (dir > 0 ? z >= targetZ : z <= targetZ)) break;
+  }
+  return { x, y, z, t };
+}
+
+/* ---------- fluxo da partida ---------- */
+function startMatch(g){
+  S.char = g; resetStats();
+  S.pts = [0,0]; S.games = [0,0]; S.fx = []; S.marks = []; S.serveSide = 1; S.hits = 0; S.lastCheat = null;
+  $('#nmOpp').textContent = g.nome;
+  showScreen(null); $('#hud').hidden = false;
+  renderScore(); updateTicker(); resize();
+  $('#hint').hidden = false;
+  nextPoint();
+}
+function nextPoint(){
+  S.serveSide *= -1;
+  S.opp.x = S.opp.tx = 1.3*S.serveSide; S.opp.pose = 'idle'; S.opp.swing = 0;
+  S.me.tx = S.me.x;
+  S.ball = newBall(S.opp.x+.35, 1.2, OZ-.2); S.ball2 = null;
+  S.preCheat = null; S.netRaise = 0; S.mark = null; S.line = null; S.pigeon = null; S.cheat = null; S.swipe = null;
+  S.rally = 0; S.mode = 'serve'; S.timer = 1.1;
+}
+function serve(){
+  const b = S.ball;
+  shoot(b, -S.serveSide*rand(.8,3.4), rand(6.4,10.2), .95, .25);
+  b.last = 'opp'; S.opp.swing = .001; sfx.hit(); hitFx(b);
+  S.mode = 'rally';
+  S.me.tx = predict(b, PZ+.35, -1).x - .55;
+}
+function playerHit(sw, e){
+  const b = S.ball, len = sw.tap ? .7 : Math.min(1.2, sw.len/(H*.3));
+  let tx = sw.tap ? 0 : clamp(sw.dx/(W*.45)*4.6, -5.6, 5.6);
+  let tz = sw.tap ? 20 : 15 + len*7.6;
+  tx += rand(-1,1)*e*1.8; tz += rand(-1,1)*e*2.2;
+  shoot(b, tx, tz, 1.25 - .35*Math.min(1,len), .3);
+  const netErr = e > .7 && Math.random() < .35;
+  if (netErr) b.vy *= .5;
+  b.last = 'me'; S.rally++; S.hits++; S.me.swing = .001; sfx.hit(); hitFx(b);
+  if (S.hits >= 2) $('#hint').hidden = true;
+  const willIn = !netErr && Math.abs(tx) <= C.hw && tz <= C.len;
+  if (willIn && S.rally >= 1 && Math.random() < .12) S.preCheat = 'rede';
+  const p = predict(b, OZ-.4, 1);
+  const reach = Math.abs(p.x - .5 - S.opp.x) <= 5.2*p.t + 1;
+  const q = Math.abs(tx)/C.hw*.5 + Math.max(0, tz-17)/7*.3;
+  const pFail = Math.min(.75, .12 + .06*S.rally + q*.3);
+  S.oppWill = willIn && reach && !S.preCheat && Math.random() > pFail;
+  S.opp.tx = S.oppWill ? p.x - .5 : S.opp.x + (p.x - .5 - S.opp.x)*.45;
+  S.opp.speed = S.oppWill ? 5.5 : 2.4;
+}
+function oppHit(){
+  const b = S.ball;
+  const tx = clamp(rand(-3.3,3.3) + (S.me.x < 0 ? .9 : -.9), -3.5, 3.5);
+  shoot(b, tx, rand(2,7.5), Math.max(.85, 1.35 - S.rally*.035), .35);
+  b.last = 'opp'; S.rally++; S.opp.swing = .001; sfx.hit(); hitFx(b);
+  S.me.tx = predict(b, PZ+.35, -1).x - .55;
+}
+
+function onBounce(){
+  const b = S.ball, side = b.z > C.net ? 'opp' : 'me';
+  if (b.side !== side){ b.side = side; b.bounces = 0; }
+  b.bounces++;
+  const other = b.last === 'me' ? 'opp' : 'me';
+  if (b.bounces === 1){
+    if (side !== other) return endPoint(other, 'own');
+    const inX = Math.abs(b.x) <= C.hw + .03;
+    const inZ = side === 'opp' ? b.z <= C.len + .03 : b.z >= -.03;
+    if (side === 'opp') S.mark = { x:b.x, z:b.z };
+    if (!(inX && inZ)) return endPoint(other, 'out');
+  } else if (b.bounces === 2){
+    endPoint(b.last, 'double');
+  }
+}
+function onNet(){ const b = S.ball; endPoint(b.last === 'me' ? 'opp' : 'me', 'net'); }
+function onGone(){
+  const b = S.ball, other = b.last === 'me' ? 'opp' : 'me';
+  endPoint(b.bounces >= 1 && b.side === other ? b.last : other, 'gone');
+}
+function endPoint(winner, reason){
+  const b = S.ball; if (b.dead) return; b.dead = true;
+  if (winner === 'me'){ S.stats.trueWins++; startCheat(pickCheat()); }
+  else if (reason === 'net' && S.preCheat === 'rede' && S.ball.last === 'me'){ S.stats.trueWins++; startCheat('rede'); }
+  else {
+    const n = S.char.nome.split(' ')[0];
+    const msg = reason === 'net' ? 'Na rede. Essa foi culpa sua mesmo.'
+              : reason === 'out' ? 'Fora. Dessa vez foi fora de verdade.'
+              : `Passou. ${n} nem precisou roubar.`;
+    awardOpp(); toast(msg, 1600);
+    S.mode = 'pointover'; S.timer = 1.8;
+  }
+  updateTicker();
+}
+function awardOpp(){
+  S.pts[1]++;
+  if (S.pts[1] >= 4){ S.games[1]++; S.pts = [0,0]; if (S.games[1] < GAMES_TO_WIN) setTimeout(()=>toast(`Game ${S.char.nome.split(' ')[0]}`, 1100), 1650); }
+  renderScore();
+}
+function afterPoint(){ if (S.games[1] >= GAMES_TO_WIN) showEnd(); else nextPoint(); }
+
+/* ---------- roubos ---------- */
+function pickCheat(){
+  const fav = S.char.roubos || [];
+  const pool = [];
+  for (const k of Object.keys(ROUBOS)){
+    if (k === 'rede' || k === S.lastCheat) continue;
+    const w = fav.includes(k) ? 4 : 1;
+    for (let i=0; i<w; i++) pool.push(k);
+  }
+  return pick(pool);
+}
+function startCheat(type){
+  S.mode = 'cheat'; S.lastCheat = type;
+  S.cheat = { type, t:0, shown:false, flipped:false, showAt: type === 'rede' ? .7 : 1.4 };
+  S.stats.used[type] = (S.stats.used[type]||0) + 1;
+  const b = S.ball; b.frozen = type !== 'rede';
+  sfx.meow();
+  const m = S.mark || { x:0, z:20 };
+  if (type === 'linha'){
+    if (C.len - m.z < 2.5 || Math.abs(m.x) < C.hw - 1.2) S.line = { kind:'base', target:(m.z - .45) - C.len, cur:0 };
+    else S.line = { kind:'side', sign:Math.sign(m.x)||1, target:(C.hw - Math.abs(m.x)) + .45, cur:0 };
+  }
+  if (type === 'segundaBola'){
+    const b2 = newBall(S.opp.x+.5, 1.1, OZ-.3); shoot(b2, rand(-3,3), rand(3,7), .9, .3); S.ball2 = b2;
+    S.opp.swing = .001;
+  }
+  if (type === 'pombo') S.pigeon = { t:0 };
+  if (type === 'caibra') S.opp.pose = 'down';
+  if (type === 'celular') S.opp.pose = 'phone';
+  if (type === 'naoPronto') S.opp.pose = 'notready';
+  if (type === 'placar') renderScore({ me: ['15','30','40','AD'][S.pts[0]] || '15' });
+}
+function cheatNoteMeasure(type){
+  const m = S.mark;
+  if (type === 'linha' && S.line) return Math.max(12, Math.round(Math.abs(S.line.target)*100));
+  if (!m) return 20;
+  return Math.max(4, Math.round(Math.min(C.len - m.z, C.hw - Math.abs(m.x))*100));
+}
+function showCheatCard(){
+  const type = S.cheat.type, r = ROUBOS[type], g = S.char;
+  const say = (g.frases && g.frases[type]) || pick(r.falas);
+  $('#ccAvatar').src = g.avatarURL; $('#ccAvatar').dataset.av = g.id;
+  $('#ccName').textContent = g.nome;
+  $('#ccType').textContent = r.nome;
+  $('#ccSay').textContent = '“' + say + '”';
+  sfx.crowd();
+  $('#ccNote').textContent = r.nota(cheatNoteMeasure(type));
+  $('#ccRef').hidden = true;
+  S.cheat.protests = 0;
+  $('#cheatCard').hidden = false;
+  awardOpp();
+  if (type === 'placar') $('#pOpp').classList.add('glitch');
+  $('#btnNext').focus({ preventScroll:true });
+}
+$('#btnProtest').addEventListener('click', () => {
+  S.stats.protests++; S.cheat.protests++;
+  const ref = $('#ccRef');
+  ref.hidden = true; void ref.offsetWidth;
+  ref.textContent = S.cheat.protests >= 3 ? 'Mais uma reclamação e o próximo ponto também é dele.' : pick(ARBITRO);
+  ref.hidden = false; sfx.boo();
+});
+$('#btnNext').addEventListener('click', () => {
+  $('#cheatCard').hidden = true; $('#pOpp').classList.remove('glitch');
+  afterPoint();
+});
+
+/* ---------- loop ---------- */
+function update(dt){
+  S.clock += dt;
+  updateFx(dt);
+  const b = S.ball;
+  S.me.x += clamp(S.me.tx - S.me.x, -7.5*dt, 7.5*dt);
+  S.opp.x += clamp(S.opp.tx - S.opp.x, -S.opp.speed*dt, S.opp.speed*dt);
+  camX += (S.me.x*.45 - camX)*Math.min(1, dt*4);
+  if (S.me.swing > 0) S.me.swing = S.me.swing + dt > .35 ? 0 : S.me.swing + dt;
+  if (S.opp.swing > 0) S.opp.swing = S.opp.swing + dt > .35 ? 0 : S.opp.swing + dt;
+
+  if (S.mode === 'serve'){
+    S.timer -= dt;
+    const p = clamp(1 - S.timer/1.1, 0, 1);
+    b.x = S.opp.x + .35; b.z = OZ - .2; b.y = 1.2 + 2.3*Math.sin(p*Math.PI*.62);
+    if (S.timer <= 0) serve();
+    return;
+  }
+  if (S.mode === 'rally' || S.mode === 'pointover' || (S.mode === 'cheat' && !b.frozen)){
+    const n = 4, h = dt/n;
+    for (let i=0; i<n; i++) physStep(b, h, true);
+  }
+  if (S.mode === 'rally' && !b.dead){
+    // rede do gatuno sobe
+    if (S.preCheat === 'rede' && b.last === 'me' && b.z > 4) S.netRaise += (1.9 - S.netRaise)*Math.min(1, dt*9);
+    // jogador
+    if (b.last === 'opp' && b.side === 'me' && b.bounces >= 1){
+      const inWin = b.z >= PZ-.9 && b.z <= PZ+1.7 && Math.abs(b.x - (S.me.x+.55)) < 1.6 && b.y < 2.8;
+      if (S.swipe){
+        const age = S.clock - S.swipe.time;
+        if (age > .5) S.swipe = null;
+        else if (inWin && (!S.swipe.checked || b.z <= PZ+.35)){
+          const e = !S.swipe.checked ? Math.min(1, Math.abs(b.z - (PZ+.35))/1.3) : Math.min(1, age/.5*.8);
+          playerHit(S.swipe, e); S.swipe = null;
+        } else S.swipe.checked = true;
+      }
+    }
+    // adversário
+    if (b.last === 'me' && S.oppWill && b.side === 'opp' && b.bounces >= 1 && b.z >= 21 && Math.abs(b.x - (S.opp.x+.5)) < 1.9 && b.y < 3) oppHit();
+  }
+  if (S.mode === 'pointover'){ S.timer -= dt; if (S.timer <= 0) afterPoint(); }
+  if (S.mode === 'cheat'){
+    const c = S.cheat; c.t += dt;
+    if (S.line) S.line.cur = S.line.target*clamp((c.t - .35)/.8, 0, 1);
+    if (S.ball2) for (let i=0; i<4; i++) physStep(S.ball2, dt/4, false);
+    if (S.pigeon) S.pigeon.t += dt;
+    if (c.type === 'placar' && !c.flipped && c.t > 1.1){ c.flipped = true; renderScore(); }
+    if (!c.shown && c.t >= c.showAt){ c.shown = true; showCheatCard(); }
+  }
+}
+function physStep(b, dt, events){
+  const pz = b.z;
+  b.vy -= GRAV*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.z += b.vz*dt;
+  if (!b.netted && (pz - C.net)*(b.z - C.net) <= 0 && pz !== b.z && Math.abs(b.x) < C.dhw + .9 && b.y < netTop(b.x)){
+    b.netted = true; b.z = C.net - Math.sign(b.vz)*.12; b.vz *= -.1; b.vx *= .3; b.vy = Math.min(b.vy, 0);
+    if (events && !b.dead) onNet();
+  }
+  if (b.y <= 0 && b.vy < 0){
+    const impact = -b.vy;
+    b.y = 0; b.vy = impact*REST; b.vx *= FX; b.vz *= FX;
+    if (impact > 1.2){ b.squashAt = S.clock; bounceFx(b, impact); }
+    if (Math.abs(b.vy) < .5) b.vy = 0; else if (events) sfx.bounce();
+    if (events && !b.dead) onBounce();
+  }
+  // rolando no saibro: o atrito vai parando a bola
+  if (b.y === 0 && b.vy === 0){ const k = Math.max(0, 1 - 1.8*dt); b.vx *= k; b.vz *= k; }
+  if (events && !b.dead && (b.z > 29 || b.z < -4 || Math.abs(b.x) > 14)) onGone();
+}
+
+/* ---------- desenho ---------- */
+const COL = { clay:'#c4623a', clay2:'#b45631', chalk:'#f6efe3', fence:'#1c3a2a', night:'#0f2219', ball:'#e2f04a' };
+function poly(pts){ ctx.beginPath(); pts.forEach((p,i)=> i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.closePath(); }
+function lineZ(x, z1, z2, w=.055){ poly([proj(x-w,0,z1), proj(x+w,0,z1), proj(x+w,0,z2), proj(x-w,0,z2)]); ctx.fill(); }
+function lineX(z, x1, x2){ const a = proj(x1,0,z), b = proj(x2,0,z); ctx.lineWidth = Math.max(1.3, a.s*.075); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+
+function drawScene(){
+  // céu e árvores
+  const fb = proj(0,0,31), ft = proj(0,4,31);
+  let g = ctx.createLinearGradient(0,0,0,ft.y);
+  g.addColorStop(0,'#0b1a26'); g.addColorStop(1,'#1d3d33');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,ft.y+1);
+  ctx.fillStyle = '#12291e';
+  for (let i=-2; i<14; i++){ const x = (i*W/10 - camX*4) % (W*1.4) ; ctx.beginPath(); ctx.arc(x, ft.y - 6, W*.09 + (i%3)*10, Math.PI, 0); ctx.fill(); }
+  // refletores
+  ctx.fillStyle = 'rgba(255,248,210,.9)';
+  [-0.35, 1.35].forEach(k => { ctx.beginPath(); ctx.arc(W*k*.74 + W*.13, ft.y*.35, 4, 0, 7); ctx.fill(); });
+  // saibro
+  g = ctx.createLinearGradient(0, fb.y, 0, H);
+  g.addColorStop(0, COL.clay2); g.addColorStop(1, COL.clay);
+  ctx.fillStyle = g; ctx.fillRect(0, fb.y, W, H - fb.y);
+  // alambrado
+  ctx.fillStyle = COL.fence; ctx.fillRect(0, ft.y, W, fb.y - ft.y);
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1; ctx.beginPath();
+  const step = 7; for (let x = -(fb.y-ft.y); x < W; x += step){ ctx.moveTo(x, fb.y); ctx.lineTo(x + (fb.y-ft.y), ft.y); ctx.moveTo(x + (fb.y-ft.y), fb.y); ctx.lineTo(x, ft.y); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(0, fb.y, W, 3);
+  // linhas
+  const farZ = C.len + (S.line && S.line.kind === 'base' ? S.line.cur : 0);
+  const sideShift = sign => (S.line && S.line.kind === 'side' && S.line.sign === sign) ? S.line.cur : 0;
+  ctx.fillStyle = COL.chalk; ctx.strokeStyle = COL.chalk;
+  lineX(0, -C.dhw, C.dhw);
+  lineX(farZ, -C.dhw, C.dhw);
+  lineZ(-C.dhw, 0, C.len); lineZ(C.dhw, 0, C.len);
+  lineZ(-C.hw, 0, C.net); lineZ(C.hw, 0, C.net);
+  lineZ(-(C.hw - sideShift(-1)), C.net, farZ); lineZ(C.hw - sideShift(1), C.net, farZ);
+  lineX(C.net - C.svc, -C.hw, C.hw); lineX(C.net + C.svc, -C.hw, C.hw);
+  lineZ(0, C.net - C.svc, C.net + C.svc);
+  lineZ(0, 0, .3); lineZ(0, farZ - .3, farZ);
+  // marca da bola
+  if (S.mark && (S.mode === 'cheat' || S.mode === 'pointover')){
+    const p = proj(S.mark.x, 0, S.mark.z), rx = Math.max(4, p.s*.2);
+    ctx.fillStyle = 'rgba(90,30,10,.55)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.35, 0, 0, 7); ctx.fill();
+  }
+}
+/* ---------- efeitos da bola ---------- */
+// partículas em coordenadas do mundo: poeira de saibro no quique, faíscas na raquetada
+function bounceFx(b, impact){
+  const n = Math.min(14, 4 + impact*1.3|0);
+  for (let i = 0; i < n; i++){
+    const a = Math.random()*Math.PI*2, sp = rand(.4, 1.3)*Math.min(1.6, impact/4);
+    S.fx.push({ kind:'dust', x:b.x, y:.02, z:b.z, vx:Math.cos(a)*sp + b.vx*.08, vy:rand(.6, 1.6)*Math.min(1.5, impact/5), vz:Math.sin(a)*sp + b.vz*.08, life:0, max:rand(.45, .8), r:rand(.06, .13) });
+  }
+  S.fx.push({ kind:'ring', x:b.x, y:0, z:b.z, life:0, max:.35 });
+  S.marks.push({ x:b.x, z:b.z, t:S.clock }); if (S.marks.length > 8) S.marks.shift();
+}
+function hitFx(b){
+  S.fx.push({ kind:'flash', x:b.x, y:b.y, z:b.z, life:0, max:.18 });
+  for (let i = 0; i < 7; i++){
+    const a = Math.random()*Math.PI*2, sp = rand(2, 4);
+    S.fx.push({ kind:'spark', x:b.x, y:b.y, z:b.z, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, vz:rand(-1,1), life:0, max:rand(.15, .3) });
+  }
+  b.trail = [];
+}
+function updateFx(dt){
+  for (const f of S.fx){
+    f.life += dt;
+    if (f.kind === 'dust'){ f.vy -= 4*dt; f.x += f.vx*dt; f.y = Math.max(0, f.y + f.vy*dt); f.z += f.vz*dt; f.vx *= .96; f.vz *= .96; }
+    if (f.kind === 'spark'){ f.x += f.vx*dt; f.y += f.vy*dt; f.z += f.vz*dt; }
+  }
+  S.fx = S.fx.filter(f => f.life < f.max);
+}
+function drawGroundFx(){
+  // marcas de bola no saibro, que somem devagar
+  for (const m of S.marks){
+    const a = 1 - (S.clock - m.t)/7; if (a <= 0) continue;
+    const p = proj(m.x, 0, m.z), rx = Math.max(3, p.s*.17);
+    ctx.fillStyle = `rgba(110,40,15,${.4*a})`; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.33, 0, 0, 7); ctx.fill();
+  }
+  for (const f of S.fx){
+    const k = f.life/f.max;
+    if (f.kind === 'ring'){
+      const p = proj(f.x, 0, f.z), rx = p.s*(.15 + k*.5);
+      ctx.strokeStyle = `rgba(240,200,170,${.5*(1-k)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*.3, 0, 0, 7); ctx.stroke();
+    }
+    if (f.kind === 'dust'){
+      const p = proj(f.x, f.y, f.z), r = Math.max(1.5, p.s*f.r*(1 + k*1.5));
+      ctx.fillStyle = `rgba(214,128,86,${.55*(1-k)})`; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+    }
+  }
+}
+function drawAirFx(){
+  for (const f of S.fx){
+    const k = f.life/f.max;
+    if (f.kind === 'flash'){
+      const p = proj(f.x, f.y*ballLift(f.z), f.z), r = Math.max(10, p.s*.5)*(.6 + k);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, `rgba(255,255,230,${.9*(1-k)})`); g.addColorStop(1, 'rgba(255,255,230,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+    }
+    if (f.kind === 'spark'){
+      const p = proj(f.x, f.y*ballLift(f.z), f.z);
+      ctx.fillStyle = `rgba(255,250,200,${1-k})`; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1.2, p.s*.04), 0, 7); ctx.fill();
+    }
+  }
+}
+function drawShadow(b){
+  if (!b) return;
+  const p = proj(b.x, 0, b.z), h = 1/(1 + b.y*.35), r = Math.max(2.5, p.s*.13)*h;
+  ctx.fillStyle = `rgba(40,10,0,${.38*h})`; ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r*.4, 0, 0, 7); ctx.fill();
+}
+function drawBall(b, glow){
+  const lift = ballLift(b.z), p = proj(b.x, b.y*lift, b.z), r = Math.max(3, p.s*.11)*(1 + (lift - 1)*.2);
+  const speed = b.frozen ? 0 : Math.hypot(b.vx, b.vy, b.vz);
+  // rastro: traça o caminho que a bola acabou de fazer (a partir da velocidade atual),
+  // sempre em coordenadas do mundo, então não treme quando a câmera anda
+  if (speed > 6){
+    const strength = Math.min(1, (speed - 6)/16), steps = 8, span = .07;
+    let prev = p;
+    for (let i = 1; i <= steps; i++){
+      const t = span*i/steps, y = Math.max(0, b.y - b.vy*t - .5*GRAV*t*t), z = b.z - b.vz*t;
+      const q = proj(b.x - b.vx*t, y*ballLift(z), z), k = 1 - i/steps;
+      ctx.strokeStyle = `rgba(240,250,170,${.5*k*strength})`; ctx.lineWidth = r*1.8*k; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+      prev = q;
+    }
+  }
+  if (glow){ ctx.strokeStyle = 'rgba(226,240,74,.85)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, r + 8 + Math.sin(S.clock*20)*2, 0, 7); ctx.stroke(); }
+  // achata no quique e estica um pouco na direção do movimento quando vai rápido
+  const sq = b.squashAt != null ? Math.max(0, 1 - (S.clock - b.squashAt)/.1) : 0;
+  let ang = 0;
+  if (speed > 6 && !sq){
+    const z2 = b.z + b.vz*.02, q = proj(b.x + b.vx*.02, (b.y + b.vy*.02)*ballLift(z2), z2);
+    ang = Math.atan2(q.y - p.y, q.x - p.x);
+  }
+  const stretch = sq || speed <= 6 ? 1 : 1 + Math.min(.25, (speed - 6)/60);
+  ctx.save(); ctx.translate(p.x, p.y + (sq ? r*.35*sq : 0)); ctx.rotate(ang);
+  ctx.scale(sq ? 1 + .45*sq : stretch, sq ? 1 - .4*sq : 1/stretch);
+  ctx.fillStyle = COL.ball; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(-r*.3, -r*.35, r*.4, 0, 7); ctx.fill();
+  // costura girando com a velocidade
+  b.spin = (b.spin || 0) + speed*.012;
+  ctx.rotate(b.spin - ang);
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = Math.max(1, r*.16);
+  ctx.beginPath(); ctx.arc(-r*.95, 0, r*.75, -.95, .95); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r*.95, 0, r*.75, Math.PI - .95, Math.PI + .95); ctx.stroke();
+  ctx.restore();
+}
+function drawNet(){
+  const X = C.dhw + .9, L = proj(-X,0,C.net), R = proj(X,0,C.net);
+  const top = x => proj(x, netTop(x), C.net);
+  ctx.fillStyle = 'rgba(15,20,18,.42)';
+  ctx.beginPath(); ctx.moveTo(L.x, L.y);
+  for (let x = -X; x <= X + .01; x += X/10){ const t = top(x); ctx.lineTo(t.x, t.y); }
+  ctx.lineTo(R.x, R.y); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = -X; x <= X; x += .35){ const t = top(x), bt = proj(x,0,C.net); ctx.moveTo(bt.x, bt.y); ctx.lineTo(t.x, t.y); }
+  ctx.stroke();
+  ctx.strokeStyle = COL.chalk; ctx.lineWidth = Math.max(2, L.s*.08); ctx.beginPath();
+  for (let x = -X; x <= X + .01; x += X/10){ const t = top(x); x === -X ? ctx.moveTo(t.x, t.y) : ctx.lineTo(t.x, t.y); }
+  ctx.stroke();
+  ctx.fillStyle = '#2b2f2c';
+  [-X, X].forEach(x => { const b = proj(x,0,C.net), t = top(x); ctx.fillRect(b.x - 2, t.y, 4, b.y - t.y); });
+}
+function racket(px, py, ang, len, w){
+  ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
+  ctx.strokeStyle = '#222'; ctx.lineWidth = w*.35; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -len*.45); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = w*.3;
+  ctx.beginPath(); ctx.ellipse(0, -len*.72, w*1.5, len*.3, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function drawPlayer(){
+  const p = proj(S.me.x, 0, PZ), u = p.s;
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, u*.45, u*.12, 0, 0, 7); ctx.fill();
+  const run = Math.abs(S.me.tx - S.me.x) > .05 ? Math.sin(S.clock*18)*u*.05 : 0;
+  ctx.fillStyle = '#e9c09a';
+  ctx.fillRect(p.x - u*.2, p.y - u*.85 + run, u*.15, u*.85 - run);
+  ctx.fillRect(p.x + u*.05, p.y - u*.85 - run, u*.15, u*.85 + run);
+  ctx.fillStyle = '#fff'; ctx.fillRect(p.x - u*.22, p.y - u*.08, u*.19, u*.08); ctx.fillRect(p.x + u*.03, p.y - u*.08, u*.19, u*.08);
+  ctx.fillStyle = '#1b2a4a'; ctx.beginPath(); ctx.roundRect(p.x - u*.27, p.y - u*1.02, u*.54, u*.28, u*.05); ctx.fill();
+  ctx.fillStyle = '#f2f2f2'; ctx.beginPath(); ctx.roundRect(p.x - u*.3, p.y - u*1.52, u*.6, u*.56, u*.12); ctx.fill();
+  ctx.fillStyle = '#1b2a4a'; ctx.font = `800 ${u*.26}px ${getComputedStyle(document.body).fontFamily}`; ctx.textAlign = 'center'; ctx.fillText('0', p.x, p.y - u*1.15);
+  ctx.fillStyle = '#e9c09a'; ctx.beginPath(); ctx.arc(p.x, p.y - u*1.68, u*.15, 0, 7); ctx.fill();
+  ctx.fillStyle = '#3a2618'; ctx.beginPath(); ctx.arc(p.x, p.y - u*1.7, u*.155, Math.PI*.95, Math.PI*2.05); ctx.fill();
+  ctx.fillStyle = '#d33'; ctx.fillRect(p.x - u*.16, p.y - u*1.74, u*.32, u*.05);
+  const sw = S.me.swing > 0 ? S.me.swing/.35 : 0;
+  const ang = sw ? -2.0 + sw*3.2 : .5;
+  const sx = p.x + u*.28, sy = p.y - u*1.42;
+  ctx.strokeStyle = '#e9c09a'; ctx.lineWidth = u*.1; ctx.lineCap = 'round';
+  const hx = sx + Math.sin(ang)*u*.45, hy = sy - Math.cos(ang)*u*.1 + u*.2;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+  racket(hx, hy, ang, u*.75, u*.1);
+}
+function drawOpp(){
+  const g = S.char, p = proj(S.opp.x, 0, OZ);
+  const k = Math.max(p.s*1.6, Math.min(W, H)*.065);
+  const bob = S.opp.pose === 'idle' ? Math.sin(S.clock*3)*k*.03 : 0;
+  if (g.body){
+    // caricatura de corpo inteiro, em escala exagerada pra aparecer lá no fundo
+    const bh = OPP_H, bw = bh*g.body.width/g.body.height;
+    const dx = S.opp.tx - S.opp.x, moving = Math.abs(dx) > .08 && S.mode === 'rally';
+    const sw = S.opp.swing > 0 ? S.opp.swing/.35 : 0;              // 0→1 durante a rebatida
+    const hit = sw ? Math.sin(sw*Math.PI) : 0;
+    const hop = moving ? Math.abs(Math.sin(S.clock*13))*bh*.05 : 0;  // corridinha
+    const lean = moving ? clamp(dx, -1, 1)*.1 : 0;
+    const breathe = S.opp.pose === 'idle' && !moving ? Math.sin(S.clock*3)*.015 : 0;
+    ctx.save(); ctx.translate(p.x, p.y);
+    ctx.fillStyle = 'rgba(40,12,0,.32)';
+    ctx.beginPath(); ctx.ellipse(0, 0, bw*.36*(1 - hop/bh*2), bw*.08, 0, 0, 7); ctx.fill();
+    if (S.opp.pose === 'down'){ ctx.translate(-bh*.42, -bw*.32); ctx.rotate(-Math.PI/2); ctx.translate(0, bh*.04); }
+    else {
+      ctx.translate(0, -hop);
+      // rebatida: agacha (squash), gira o tronco e estica (stretch)
+      ctx.rotate(lean + (sw < .4 ? -hit*.18 : hit*.24));
+      ctx.scale(1 + hit*.06 - breathe*.5, 1 - hit*.06 + breathe);
+    }
+    ctx.drawImage(g.body, -bw/2, -bh, bw, bh);
+    S.oppRect = { l:p.x - bw*.6, r:p.x + bw*.6, t:p.y - bh*1.1, b:p.y };
+    if (hit > .15){
+      // rastro da raquetada
+      ctx.strokeStyle = `rgba(255,255,255,${hit*.7})`; ctx.lineWidth = bh*.035; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, -bh*.45, bw*.62, Math.PI*(.85 - sw*.9), Math.PI*(1.15 - sw*.9)); ctx.stroke();
+    }
+    ctx.restore();
+    const em = { phone:'📱', notready:'✋', down:'🤕' }[S.opp.pose];
+    if (em){ ctx.font = `${bh*.22}px serif`; ctx.textAlign = 'center'; ctx.fillText(em, p.x + bw*.55, p.y - bh*.8); }
+    return;
+  }
+  ctx.save(); ctx.translate(p.x, p.y);
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 0, k*.5, k*.13, 0, 0, 7); ctx.fill();
+  if (S.opp.pose === 'down'){ ctx.translate(-k*.2, -k*.25); ctx.rotate(-Math.PI/2); }
+  ctx.fillStyle = g.pele;
+  ctx.fillRect(-k*.2, -k*.75, k*.14, k*.75); ctx.fillRect(k*.06, -k*.75, k*.14, k*.75);
+  ctx.fillStyle = '#fff'; ctx.fillRect(-k*.27, -k*.85, k*.54, k*.2);
+  ctx.fillStyle = g.cor; ctx.beginPath(); ctx.roundRect(-k*.3, -k*1.35 + bob, k*.6, k*.55, k*.12); ctx.fill();
+  // braço + raquete
+  const sw = S.opp.swing > 0 ? S.opp.swing/.35 : 0;
+  const ang = sw ? 2.2 - sw*3.4 : -.4;
+  ctx.strokeStyle = g.pele; ctx.lineWidth = k*.1; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-k*.28, -k*1.25 + bob); ctx.lineTo(-k*.45, -k*.95 + bob); ctx.stroke();
+  racket(-k*.45, -k*.95 + bob, ang, k*.8, k*.1);
+  // cabeção caricatura
+  const hr = k*.55, hy = -k*1.35 - hr*.85 + bob;
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(2, hy + 3, hr, 0, 7); ctx.fill();
+  ctx.drawImage(g.avatar, -hr, hy - hr, hr*2, hr*2);
+  ctx.restore();
+  const em = { phone:'📱', notready:'✋', down:'🤕' }[S.opp.pose];
+  if (em){ ctx.font = `${k*.6}px serif`; ctx.textAlign = 'center'; ctx.fillText(em, p.x + k*.7, p.y - k*2.2); }
+}
+function drawPigeon(){
+  if (!S.pigeon) return; const t = S.pigeon.t;
+  const p = proj(-9 + t*9, 2.8 + Math.sin(t*12)*.2, 17);
+  ctx.font = `${Math.max(26, p.s*1.4)}px serif`; ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(-1,1); ctx.fillText('🐦', 0, 0); ctx.restore();
+}
+function drawLabels(){
+  if (!S.cheat || !S.mark) return;
+  const t = S.cheat.type; if (t !== 'fora' && t !== 'linha') return;
+  const p = proj(S.mark.x, 0, S.mark.z), pulse = 1 + Math.sin(S.clock*8)*.15;
+  ctx.strokeStyle = '#5fd38a'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 16*pulse, 6*pulse, 0, 0, 7); ctx.stroke();
+  const txt = t === 'linha' && S.line && Math.abs(S.line.cur) > .05 ? 'ERA DENTRO' : 'DENTRO';
+  ctx.font = `800 15px 'Barlow Condensed', sans-serif`; const w = ctx.measureText(txt).width + 16;
+  ctx.fillStyle = '#0b1711'; ctx.beginPath(); ctx.roundRect(p.x - w/2, p.y - 46, w, 24, 4); ctx.fill();
+  ctx.fillStyle = '#5fd38a'; ctx.textAlign = 'center'; ctx.fillText(txt, p.x, p.y - 29);
+  ctx.beginPath(); ctx.moveTo(p.x - 5, p.y - 22); ctx.lineTo(p.x + 5, p.y - 22); ctx.lineTo(p.x, p.y - 14); ctx.fillStyle = '#0b1711'; ctx.fill();
+}
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawScene();
+  drawGroundFx();
+  const b = S.ball, playing = S.mode !== 'menu' && S.mode !== 'select';
+  if (playing){ drawShadow(b); drawShadow(S.ball2); }
+  const ents = [ { z:OZ, d:drawOpp }, { z:C.net, d:drawNet }, { z:PZ, d:drawPlayer } ];
+  if (playing && b){
+    const glow = S.mode === 'rally' && b.last === 'opp' && b.side === 'me' && b.bounces >= 1 && b.z <= PZ + 2.2 && b.z >= PZ - .9;
+    ents.push({ z:b.z, d:() => drawBall(b, glow) });
+  }
+  if (S.ball2) ents.push({ z:S.ball2.z, d:() => drawBall(S.ball2) });
+  if (S.pigeon) ents.push({ z:17, d:drawPigeon });
+  ents.sort((a,b) => b.z - a.z).forEach(e => e.d());
+  drawAirFx();
+  drawLabels();
+}
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last)/1000); last = now;
+  if (S.mode === 'menu' || S.mode === 'select'){ S.clock += dt; S.opp.x = Math.sin(S.clock*.6)*1.5; }
+  else if (S.mode !== 'end') update(dt*.92);
+  render();
+  // rede de segurança: se ainda assim a caricatura passar por trás do placar, o placar fica transparente
+  // (o retângulo do placar é medido só no resize, pra não forçar layout a cada quadro)
+  if (S.oppRect && boardRect){
+    const o = S.oppRect, br = boardRect;
+    const over = o.l < br.r && o.r > br.l && o.t < br.b && o.b > br.t;
+    if (over !== boardBehind){ boardBehind = over; document.querySelector('#hud > div').classList.toggle('behind', over); }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- UI ---------- */
+function showScreen(id){
+  ['#scrTitle','#scrSelect','#scrEnd'].forEach(s => $(s).hidden = s !== id);
+}
+const CALL = ['0','15','30','40'];
+function renderScore(fake){
+  $('#gMe').textContent = S.games[0]; $('#gOpp').textContent = S.games[1];
+  const pm = $('#pMe');
+  pm.textContent = fake && fake.me ? fake.me : CALL[S.pts[0]];
+  pm.classList.toggle('fake', !!(fake && fake.me));
+  $('#pOpp').textContent = CALL[S.pts[1]] || '40';
+}
+function updateTicker(){ $('#tkTrue').textContent = S.stats.trueWins; }
+let toastT = 0;
+function toast(msg, ms){ const t = $('#toast'); t.textContent = msg; t.hidden = true; void t.offsetWidth; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms); }
+function showEnd(){
+  S.mode = 'end'; $('#hud').hidden = true; $('#hint').hidden = true;
+  const g = S.char, st = S.stats;
+  $('#endAvatar').src = g.avatarURL; $('#endAvatar').dataset.av = g.id;
+  $('#endTitle').textContent = `${g.nome} venceu por ${GAMES_TO_WIN} games a 0`;
+  $('#stTrue').textContent = st.trueWins; $('#stProt').textContent = st.protests;
+  const fav = Object.entries(st.used).sort((a,b) => b[1]-a[1])[0];
+  $('#stFav').textContent = fav ? ROUBOS[fav[0]].nome : 'Nenhum, só talento';
+  $('#endVerdict').textContent = st.trueWins === 0
+    ? 'Você não ganhou nenhum ponto de verdade. Ele nem precisou se esforçar pra roubar.'
+    : `Você ganhou ${st.trueWins} ${st.trueWins === 1 ? 'ponto' : 'pontos'} de verdade. Ele roubou ${st.trueWins === 1 ? 'esse' : 'todos'}. Nível de gatunagem: lendário.`;
+  showScreen('#scrEnd');
+}
+function buildSelect(){
+  const grid = $('#charGrid'); grid.innerHTML = '';
+  for (const g of GATUNOS){
+    const b = document.createElement('button'); b.className = 'card'; b.type = 'button';
+    b.innerHTML = `<img alt="" data-av="${g.id}" src="${g.avatarURL}"><span class="cn"></span><span class="ct"></span><span class="cs"></span>`;
+    b.querySelector('.cn').textContent = g.nome;
+    b.querySelector('.ct').textContent = g.titulo;
+    b.querySelector('.cs').textContent = 'Ver ficha ›';
+    b.addEventListener('click', () => { ac(); openFicha(GATUNOS.indexOf(g)); });
+    b.addEventListener('pointerenter', () => S.char = g);
+    grid.appendChild(b);
+  }
+}
+
+/* ---------- ficha técnica ---------- */
+let fichaIdx = 0;
+function openFicha(i){
+  fichaIdx = (i + GATUNOS.length) % GATUNOS.length;
+  const g = GATUNOS[fichaIdx], f = FICHAS[g.id] || {};
+  S.char = g;
+  $('#fcNum').textContent = `${fichaIdx + 1} de ${GATUNOS.length}`;
+  const img = $('#fcBody'); img.style.animation = 'none'; void img.offsetWidth; img.style.animation = '';
+  img.src = g.corpo || g.avatarURL; img.alt = `Caricatura de ${g.nome}`;
+  $('#fcName').textContent = g.nome;
+  $('#fcSlogan').textContent = g.titulo;
+  // ponto forte: o maior atributo além da gatunagem (que é 100 pra todo mundo)
+  const rest = ATRIBUTOS.slice(1).map(([k]) => f[k] ?? 0), best = Math.max(...rest);
+  const list = $('#fcStats'); list.innerHTML = '';
+  for (const [k, label] of ATRIBUTOS){
+    const v = clamp(f[k] ?? 0, 0, 100);
+    const li = document.createElement('li');
+    const isBest = k !== 'gatunagem' && v === best && v > 0 && v < 100;
+    li.className = 'stat' + (v === 100 ? ' max' : '') + (v === 0 ? ' zero' : '') + (isBest ? ' best' : '');
+    li.innerHTML = `<div class="stat-top"><span class="stat-name"></span><span class="stat-val">${v}<small>%</small></span></div><div class="stat-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v}"><div class="stat-fill"></div></div>`;
+    li.querySelector('.stat-name').textContent = label;
+    li.querySelector('.stat-bar').setAttribute('aria-label', label);
+    list.appendChild(li);
+    requestAnimationFrame(() => requestAnimationFrame(() => li.querySelector('.stat-fill').style.width = v + '%'));
+  }
+  const chips = $('#fcRoubos'); chips.innerHTML = '';
+  for (const r of g.roubos || []){ if (!ROUBOS[r]) continue; const c = document.createElement('span'); c.className = 'chip'; c.textContent = ROUBOS[r].nome; chips.appendChild(c); }
+  $('#fcPlay').textContent = `Escolher ${g.nome}`;
+  $('#ficha').hidden = false; $('.ficha-scroll').scrollTop = 0;
+}
+function closeFicha(){ $('#ficha').hidden = true; }
+$('#fcPrev').addEventListener('click', () => openFicha(fichaIdx - 1));
+$('#fcNext').addEventListener('click', () => openFicha(fichaIdx + 1));
+$('#fcBack').addEventListener('click', closeFicha);
+$('#fcPlay').addEventListener('click', () => { closeFicha(); startMatch(GATUNOS[fichaIdx]); });
+// deslizar pro lado na foto troca de atleta
+let fcSwipe = null;
+$('.ficha-hero').addEventListener('pointerdown', e => fcSwipe = e.clientX);
+$('.ficha-hero').addEventListener('pointerup', e => {
+  if (fcSwipe == null) return; const dx = e.clientX - fcSwipe; fcSwipe = null;
+  if (Math.abs(dx) > 50) openFicha(fichaIdx + (dx < 0 ? 1 : -1));
+});
+window.addEventListener('keydown', e => {
+  if ($('#ficha').hidden) return;
+  if (e.key === 'ArrowLeft') openFicha(fichaIdx - 1);
+  if (e.key === 'ArrowRight') openFicha(fichaIdx + 1);
+  if (e.key === 'Escape') closeFicha();
+});
+
+$('#btnPlay').addEventListener('click', () => { ac(); S.mode = 'select'; showScreen('#scrSelect'); });
+$('#btnAgain').addEventListener('click', () => startMatch(S.char));
+$('#btnOther').addEventListener('click', () => { S.mode = 'select'; showScreen('#scrSelect'); });
+$('#btnQuit').addEventListener('click', () => {
+  S.mode = 'select'; $('#hud').hidden = true; $('#hint').hidden = true; $('#cheatCard').hidden = true; $('#toast').hidden = true;
+  S.ball = null; S.ball2 = null; S.fx = []; S.marks = []; S.pigeon = null; S.line = null; S.netRaise = 0; S.opp.pose = 'idle';
+  showScreen('#scrSelect');
+});
+document.querySelectorAll('.sound-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); setMuted(!muted); }));
+// o botão flutuante só aparece fora da partida e fora da ficha
+function syncSoundFloat(){ const h = !$('#hud').hidden || !$('#ficha').hidden, b = $('#btnSoundFloat'); if (b.hidden !== h) b.hidden = h; }
+new MutationObserver(syncSoundFloat).observe($('#app'), { subtree:true, attributes:true, attributeFilter:['hidden'] });
+
+/* ---------- controle: deslizar ---------- */
+let ptr = null;
+cv.addEventListener('pointerdown', e => { ptr = { x:e.clientX, y:e.clientY }; ac(); });
+cv.addEventListener('pointerup', e => {
+  if (!ptr) return;
+  const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y; ptr = null;
+  if (S.mode !== 'rally') return;
+  const len = Math.hypot(dx, dy), tap = len < 18;
+  if (!tap && dy > -10) return;
+  S.swipe = { dx, len:-dy, tap, time:S.clock, checked:false };
+  if (!S.me.swing) S.me.swing = .001;
+});
+cv.addEventListener('pointercancel', () => ptr = null);
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') S.aimKey = -1;
+  if (e.key === 'ArrowRight') S.aimKey = 1;
+  if ((e.key === ' ' || e.key === 'ArrowUp') && S.mode === 'rally'){
+    e.preventDefault();
+    S.swipe = { dx:S.aimKey*W*.3, len:H*.24, tap:false, time:S.clock, checked:false };
+    if (!S.me.swing) S.me.swing = .001;
+  }
+});
+window.addEventListener('keyup', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') S.aimKey = 0; });
+
+window.addEventListener('resize', resize);
+resetStats(); loadAvatars(); buildSelect(); resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
